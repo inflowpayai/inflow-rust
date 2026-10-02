@@ -1,0 +1,19 @@
+coverage:
+  precision: 2
+  round: down
+  status:
+    project:
+      default:
+        target: 99%
+        threshold: 0%
+    patch:
+      default:
+        target: 99%
+        threshold: 0%
+
+comment:
+  layout: "files"
+  require_changes: true
+
+ignore:
+  - "crates/*/tests/**"

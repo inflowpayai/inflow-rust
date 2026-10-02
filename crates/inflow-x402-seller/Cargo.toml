@@ -1,0 +1,14 @@
+[package]
+name = "inflow-x402-seller"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Seller integration for InFlow x402 payments."
+readme = "README.md"
+include = ["src/**", "README.md", "LICENSE"]
+
+[lints]
+workspace = true

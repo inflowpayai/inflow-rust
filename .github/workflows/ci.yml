@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify (${{ matrix.toolchain }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: ["1.93.0", stable]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Rust
+        run: |
+          rustup toolchain install ${{ matrix.toolchain }} --profile minimal --component clippy,rustfmt,llvm-tools-preview
+          rustup override set ${{ matrix.toolchain }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.19.8,cargo-llvm-cov@0.8.7
+          fallback: none
+      - run: make verify
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.toolchain }}
+          path: lcov.info
+          if-no-files-found: error
+
+  codecov:
+    if: github.repository == 'inflowpayai/inflow-rust'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-1.93.0
+      - uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          disable_search: true
+          fail_ci_if_error: true
+          use_oidc: true

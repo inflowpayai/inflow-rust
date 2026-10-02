@@ -1,0 +1,22 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/inflow-core",
+    "crates/inflow-mpp",
+    "crates/inflow-mpp-buyer",
+    "crates/inflow-mpp-seller",
+    "crates/inflow-x402",
+    "crates/inflow-x402-buyer",
+    "crates/inflow-x402-seller",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93"
+license = "MIT"
+authors = ["Nas Kavian <nas@inflowpay.ai>"]
+repository = "https://github.com/inflowpayai/inflow-rust"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"

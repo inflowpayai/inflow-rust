@@ -1,0 +1,14 @@
+[package]
+name = "inflow-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Shared InFlow environment and client configuration."
+readme = "README.md"
+include = ["src/**", "tests/**", "README.md", "LICENSE"]
+
+[lints]
+workspace = true
