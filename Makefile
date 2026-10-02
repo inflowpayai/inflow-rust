@@ -19,7 +19,7 @@ lint:
 	cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
 package:
-	@set -e; for manifest in crates/*/Cargo.toml; do cargo package --manifest-path "$$manifest" --allow-dirty --locked; done
+	cargo package --workspace --allow-dirty --locked
 
 test:
 	cargo test --workspace --all-features --locked
