@@ -8,7 +8,7 @@ configuration, protocol integration, and Buyer and Seller roles.
 | Crate | Responsibility |
 | --- | --- |
 | `inflow-core` | Shared InFlow environment and client configuration. |
-| `inflow-mpp` | InFlow integration with the Machine Payments Protocol. |
+| [`inflow-mpp`](crates/inflow-mpp/README.md) | MPP codecs, method-field validation, and shared InFlow protocol integration. |
 | `inflow-mpp-buyer` | Buyer integration for InFlow MPP payments. |
 | `inflow-mpp-seller` | Seller integration for InFlow MPP payments. |
 | `inflow-x402` | InFlow integration with the x402 protocol. |
@@ -46,6 +46,9 @@ The workspace uses coordinated crate versions. `Cargo.lock` records the dependen
 tree tested by CI; consumers resolve dependencies through each crate's manifest.
 
 ## References
+
+For differences from upstream MPP credential and header handling, see the
+[MPP compatibility notes](crates/inflow-mpp/README.md#differences-from-upstream-mpp-014).
 
 - [InFlow](https://app.inflowpay.ai)
 - [InFlow SDK contracts](https://github.com/inflowpayai/inflow-specs)

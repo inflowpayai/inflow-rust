@@ -8,7 +8,20 @@ authors.workspace = true
 repository.workspace = true
 description = "InFlow integration with the Machine Payments Protocol."
 readme = "README.md"
-include = ["src/**", "README.md", "LICENSE"]
+include = ["src/**", "tests/**", "README.md", "LICENSE"]
+
+[dependencies]
+http.workspace = true
+inflow-core = { path = "../inflow-core", version = "0.1.0" }
+mpp.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
+tokio-util.workspace = true
+
+[dev-dependencies]
+reqwest.workspace = true
+tokio = { workspace = true, features = ["test-util", "net", "io-util"] }
 
 [lints]
 workspace = true
