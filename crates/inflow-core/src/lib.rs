@@ -1,4 +1,16 @@
-//! Shared InFlow environment and client configuration.
+#![doc = include_str!("../README.md")]
+
+mod error;
+mod lifecycle;
+mod options;
+mod transport;
+
+pub use error::Error;
+pub use options::{AccessTokenProvider, Authentication, ClientOptions};
+pub use transport::{Transport, TransportError, TransportRequest, TransportResponse};
+
+#[doc(hidden)]
+pub mod internal;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum Environment {

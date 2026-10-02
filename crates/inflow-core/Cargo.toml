@@ -12,3 +12,15 @@ include = ["src/**", "tests/**", "README.md", "LICENSE"]
 
 [lints]
 workspace = true
+
+[dependencies]
+fastrand.workspace = true
+futures-util.workspace = true
+http.workspace = true
+reqwest.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "test-util", "net", "io-util"] }

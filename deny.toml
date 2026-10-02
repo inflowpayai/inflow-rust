@@ -8,7 +8,8 @@ highlight = "all"
 
 [licenses]
 confidence-threshold = 0.8
-allow = ["MIT"]
+allow = ["Apache-2.0", "BSD-3-Clause", "ISC", "MIT", "Unicode-3.0"]
+exceptions = [{ name = "webpki-root-certs", allow = ["CDLA-Permissive-2.0"] }]
 
 [sources]
 unknown-registry = "deny"
