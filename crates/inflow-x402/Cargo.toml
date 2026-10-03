@@ -8,7 +8,22 @@ authors.workspace = true
 repository.workspace = true
 description = "InFlow integration with the x402 protocol."
 readme = "README.md"
-include = ["src/**", "README.md", "LICENSE"]
+include = ["src/**", "tests/**", "README.md", "LICENSE"]
+
+[dependencies]
+base64.workspace = true
+http.workspace = true
+inflow-core = { path = "../inflow-core", version = "0.1.0" }
+serde_json.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+uuid.workspace = true
+x402-types.workspace = true
+
+[dev-dependencies]
+reqwest.workspace = true
+tokio = { workspace = true, features = ["test-util", "net", "io-util"] }
 
 [lints]
 workspace = true

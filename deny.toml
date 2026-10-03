@@ -1,5 +1,6 @@
 [advisories]
 yanked = "deny"
+ignore = [{ id = "RUSTSEC-2024-0436", reason = "x402-types depends on alloy-primitives, which requires paste. This advisory reports unmaintained compile-time macros, not a known vulnerability; no patched version is available." }]
 
 [bans]
 multiple-versions = "warn"
@@ -9,7 +10,10 @@ highlight = "all"
 [licenses]
 confidence-threshold = 0.8
 allow = ["Apache-2.0", "BSD-3-Clause", "ISC", "MIT", "Unicode-3.0"]
-exceptions = [{ name = "webpki-root-certs", allow = ["CDLA-Permissive-2.0"] }]
+exceptions = [
+    { name = "foldhash", allow = ["Zlib"] },
+    { name = "webpki-root-certs", allow = ["CDLA-Permissive-2.0"] },
+]
 
 [sources]
 unknown-registry = "deny"
