@@ -1,0 +1,1619 @@
+[
+  {
+    "id": "x402.seller.offers-default",
+    "suite": "x402-seller",
+    "operation": "x402.seller.offers",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2"
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "options": {
+        "price": "$1"
+      }
+    },
+    "expect": {
+      "result": [
+        {
+          "scheme": "exact",
+          "network": "eip155:8453",
+          "payTo": "0x1111111111111111111111111111111111111111",
+          "price": {
+            "asset": "0x3333333333333333333333333333333333333333",
+            "amount": "1000000"
+          },
+          "maxTimeoutSeconds": 300,
+          "extra": {
+            "assetName": "USDC",
+            "name": "USDC",
+            "version": "2",
+            "assetTransferMethod": "eip3009"
+          }
+        },
+        {
+          "scheme": "balance",
+          "network": "inflow:1",
+          "payTo": "11111111-1111-4111-8111-111111111111",
+          "price": {
+            "asset": "USDC",
+            "amount": "100000000"
+          },
+          "maxTimeoutSeconds": 300,
+          "extra": {
+            "assetName": "USDC"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "x402.seller.offers-currency",
+    "suite": "x402-seller",
+    "operation": "x402.seller.offers",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2"
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "options": {
+        "price": "1 USDC"
+      }
+    },
+    "expect": {
+      "result": [
+        {
+          "scheme": "exact",
+          "network": "eip155:8453",
+          "payTo": "0x1111111111111111111111111111111111111111",
+          "price": {
+            "asset": "0x3333333333333333333333333333333333333333",
+            "amount": "1000000"
+          },
+          "maxTimeoutSeconds": 300,
+          "extra": {
+            "assetName": "USDC",
+            "name": "USDC",
+            "version": "2",
+            "assetTransferMethod": "eip3009"
+          }
+        },
+        {
+          "scheme": "balance",
+          "network": "inflow:1",
+          "payTo": "11111111-1111-4111-8111-111111111111",
+          "price": {
+            "asset": "USDC",
+            "amount": "100000000"
+          },
+          "maxTimeoutSeconds": 300,
+          "extra": {
+            "assetName": "USDC"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "x402.seller.offers-balance-only",
+    "suite": "x402-seller",
+    "operation": "x402.seller.offers",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2"
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "options": {
+        "price": "$1",
+        "schemes": [
+          "balance"
+        ]
+      }
+    },
+    "expect": {
+      "result": [
+        {
+          "scheme": "balance",
+          "network": "inflow:1",
+          "payTo": "11111111-1111-4111-8111-111111111111",
+          "price": {
+            "asset": "USDC",
+            "amount": "100000000"
+          },
+          "maxTimeoutSeconds": 300,
+          "extra": {
+            "assetName": "USDC"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "x402.seller.offers-network-only",
+    "suite": "x402-seller",
+    "operation": "x402.seller.offers",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2"
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "options": {
+        "price": "$1",
+        "networks": [
+          "eip155:8453"
+        ]
+      }
+    },
+    "expect": {
+      "result": [
+        {
+          "scheme": "exact",
+          "network": "eip155:8453",
+          "payTo": "0x1111111111111111111111111111111111111111",
+          "price": {
+            "asset": "0x3333333333333333333333333333333333333333",
+            "amount": "1000000"
+          },
+          "maxTimeoutSeconds": 300,
+          "extra": {
+            "assetName": "USDC",
+            "name": "USDC",
+            "version": "2",
+            "assetTransferMethod": "eip3009"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "x402.seller.offers-intersect-filters",
+    "suite": "x402-seller",
+    "operation": "x402.seller.offers",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2"
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "options": {
+        "price": "$1",
+        "schemes": [
+          "balance"
+        ],
+        "networks": [
+          "eip155:8453"
+        ]
+      }
+    },
+    "expect": {
+      "result": []
+    }
+  },
+  {
+    "id": "x402.seller.offers-large-amount",
+    "suite": "x402-seller",
+    "operation": "x402.seller.offers",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2"
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "options": {
+        "price": "9007199254740993 USDC",
+        "schemes": [
+          "exact"
+        ]
+      }
+    },
+    "expect": {
+      "result": [
+        {
+          "scheme": "exact",
+          "network": "eip155:8453",
+          "payTo": "0x1111111111111111111111111111111111111111",
+          "price": {
+            "asset": "0x3333333333333333333333333333333333333333",
+            "amount": "9007199254740993000000"
+          },
+          "maxTimeoutSeconds": 300,
+          "extra": {
+            "assetName": "USDC",
+            "name": "USDC",
+            "version": "2",
+            "assetTransferMethod": "eip3009"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "x402.seller.invalid-price-negative",
+    "suite": "x402-seller",
+    "operation": "x402.seller.offers",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2"
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "options": {
+        "price": "-1 USDC"
+      }
+    },
+    "expect": {
+      "error": {
+        "code": "invalid-input",
+        "message": "Invalid input."
+      }
+    }
+  },
+  {
+    "id": "x402.seller.invalid-price-exponent",
+    "suite": "x402-seller",
+    "operation": "x402.seller.offers",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2"
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "options": {
+        "price": "1e3 USDC"
+      }
+    },
+    "expect": {
+      "error": {
+        "code": "invalid-input",
+        "message": "Invalid input."
+      }
+    }
+  },
+  {
+    "id": "x402.seller.invalid-price-precision",
+    "suite": "x402-seller",
+    "operation": "x402.seller.offers",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2"
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "options": {
+        "price": "1.0000001 USDC"
+      }
+    },
+    "expect": {
+      "error": {
+        "code": "invalid-input",
+        "message": "Invalid input."
+      }
+    }
+  },
+  {
+    "id": "x402.seller.invalid-price-currency-missing",
+    "suite": "x402-seller",
+    "operation": "x402.seller.offers",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2"
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "options": {
+        "price": "1"
+      }
+    },
+    "expect": {
+      "error": {
+        "code": "invalid-input",
+        "message": "Invalid input."
+      }
+    }
+  },
+  {
+    "id": "x402.seller.metered-explicit",
+    "suite": "x402-seller",
+    "operation": "x402.seller.offers",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2"
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          },
+          {
+            "scheme": "upto",
+            "network": "eip155:8453",
+            "x402Version": 2,
+            "extra": {
+              "assetTransferMethod": "permit2",
+              "permit2Proxy": "0x4444444444444444444444444444444444444444",
+              "facilitatorAddress": "0x2222222222222222222222222222222222222222"
+            }
+          }
+        ]
+      },
+      "options": {
+        "price": "$1",
+        "schemes": [
+          "upto"
+        ]
+      }
+    },
+    "expect": {
+      "result": [
+        {
+          "scheme": "upto",
+          "network": "eip155:8453",
+          "payTo": "0x1111111111111111111111111111111111111111",
+          "price": {
+            "asset": "0x3333333333333333333333333333333333333333",
+            "amount": "1000000"
+          },
+          "maxTimeoutSeconds": 300,
+          "extra": {
+            "assetName": "USDC",
+            "name": "USDC",
+            "version": "2",
+            "assetTransferMethod": "permit2",
+            "permit2Proxy": "0x4444444444444444444444444444444444444444",
+            "facilitatorAddress": "0x2222222222222222222222222222222222222222"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "x402.seller.metered-not-default",
+    "suite": "x402-seller",
+    "operation": "x402.seller.offers",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2"
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          },
+          {
+            "scheme": "upto",
+            "network": "eip155:8453",
+            "x402Version": 2,
+            "extra": {
+              "assetTransferMethod": "permit2",
+              "permit2Proxy": "0x4444444444444444444444444444444444444444",
+              "facilitatorAddress": "0x2222222222222222222222222222222222222222"
+            }
+          }
+        ]
+      },
+      "options": {
+        "price": "$1"
+      }
+    },
+    "expect": {
+      "result": [
+        {
+          "scheme": "exact",
+          "network": "eip155:8453",
+          "payTo": "0x1111111111111111111111111111111111111111",
+          "price": {
+            "asset": "0x3333333333333333333333333333333333333333",
+            "amount": "1000000"
+          },
+          "maxTimeoutSeconds": 300,
+          "extra": {
+            "assetName": "USDC",
+            "name": "USDC",
+            "version": "2",
+            "assetTransferMethod": "eip3009"
+          }
+        },
+        {
+          "scheme": "balance",
+          "network": "inflow:1",
+          "payTo": "11111111-1111-4111-8111-111111111111",
+          "price": {
+            "asset": "USDC",
+            "amount": "100000000"
+          },
+          "maxTimeoutSeconds": 300,
+          "extra": {
+            "assetName": "USDC"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "x402.seller.metered-incomplete-config",
+    "suite": "x402-seller",
+    "operation": "x402.seller.offers",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2"
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          },
+          {
+            "scheme": "upto",
+            "network": "eip155:8453",
+            "x402Version": 2,
+            "extra": {
+              "assetTransferMethod": "permit2",
+              "permit2Proxy": "0x4444444444444444444444444444444444444444"
+            }
+          }
+        ]
+      },
+      "options": {
+        "price": "$1",
+        "schemes": [
+          "upto"
+        ]
+      }
+    },
+    "expect": {
+      "result": []
+    }
+  },
+  {
+    "id": "x402.seller.sponsorship-advertised",
+    "suite": "x402-seller",
+    "operation": "x402.seller.route",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2",
+            "supportsEip7702": true
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "supported": {
+        "kinds": [
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2,
+            "extra": {
+              "supportsEip7702": true
+            }
+          }
+        ],
+        "extensions": [
+          "inflowEip7702GasSponsoring"
+        ]
+      },
+      "options": {
+        "price": "$1",
+        "schemes": [
+          "exact"
+        ],
+        "assetTransferMethod": "permit2"
+      }
+    },
+    "expect": {
+      "result": {
+        "accepts": [
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "payTo": "0x1111111111111111111111111111111111111111",
+            "price": {
+              "asset": "0x3333333333333333333333333333333333333333",
+              "amount": "1000000"
+            },
+            "maxTimeoutSeconds": 300,
+            "extra": {
+              "assetName": "USDC",
+              "name": "USDC",
+              "version": "2",
+              "assetTransferMethod": "permit2",
+              "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+              "supportsEip7702": true
+            }
+          }
+        ],
+        "extensions": {
+          "inflowEip7702GasSponsoring": {
+            "info": {
+              "version": "1"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "x402.seller.sponsorship-token-unconfirmed",
+    "suite": "x402-seller",
+    "operation": "x402.seller.route",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2"
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "supported": {
+        "kinds": [
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2,
+            "extra": {
+              "supportsEip7702": true
+            }
+          }
+        ],
+        "extensions": [
+          "inflowEip7702GasSponsoring"
+        ]
+      },
+      "options": {
+        "price": "$1",
+        "schemes": [
+          "exact"
+        ],
+        "assetTransferMethod": "permit2"
+      }
+    },
+    "expect": {
+      "result": {
+        "accepts": [
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "payTo": "0x1111111111111111111111111111111111111111",
+            "price": {
+              "asset": "0x3333333333333333333333333333333333333333",
+              "amount": "1000000"
+            },
+            "maxTimeoutSeconds": 300,
+            "extra": {
+              "assetName": "USDC",
+              "name": "USDC",
+              "version": "2",
+              "assetTransferMethod": "permit2",
+              "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "x402.seller.sponsorship-facilitator-unconfirmed",
+    "suite": "x402-seller",
+    "operation": "x402.seller.route",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2",
+            "supportsEip7702": true
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "supported": {
+        "kinds": [
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2,
+            "extra": {
+              "supportsEip7702": true
+            }
+          }
+        ],
+        "extensions": []
+      },
+      "options": {
+        "price": "$1",
+        "schemes": [
+          "exact"
+        ],
+        "assetTransferMethod": "permit2"
+      }
+    },
+    "expect": {
+      "result": {
+        "accepts": [
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "payTo": "0x1111111111111111111111111111111111111111",
+            "price": {
+              "asset": "0x3333333333333333333333333333333333333333",
+              "amount": "1000000"
+            },
+            "maxTimeoutSeconds": 300,
+            "extra": {
+              "assetName": "USDC",
+              "name": "USDC",
+              "version": "2",
+              "assetTransferMethod": "permit2",
+              "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+              "supportsEip7702": true
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "x402.seller.sponsorship-network-unconfirmed",
+    "suite": "x402-seller",
+    "operation": "x402.seller.route",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2",
+            "supportsEip7702": true
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "supported": {
+        "kinds": [],
+        "extensions": [
+          "inflowEip7702GasSponsoring"
+        ]
+      },
+      "options": {
+        "price": "$1",
+        "schemes": [
+          "exact"
+        ],
+        "assetTransferMethod": "permit2"
+      }
+    },
+    "expect": {
+      "result": {
+        "accepts": [
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "payTo": "0x1111111111111111111111111111111111111111",
+            "price": {
+              "asset": "0x3333333333333333333333333333333333333333",
+              "amount": "1000000"
+            },
+            "maxTimeoutSeconds": 300,
+            "extra": {
+              "assetName": "USDC",
+              "name": "USDC",
+              "version": "2",
+              "assetTransferMethod": "permit2",
+              "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+              "supportsEip7702": true
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "x402.seller.sponsorship-prefers-eip2612",
+    "suite": "x402-seller",
+    "operation": "x402.seller.route",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "tokenVersion": "2",
+            "supportsEip7702": true,
+            "supportsEip2612": true
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "supported": {
+        "kinds": [
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2,
+            "extra": {
+              "supportsEip7702": true
+            }
+          }
+        ],
+        "extensions": [
+          "eip2612GasSponsoring",
+          "inflowEip7702GasSponsoring"
+        ]
+      },
+      "options": {
+        "price": "$1",
+        "schemes": [
+          "exact"
+        ],
+        "assetTransferMethod": "permit2"
+      }
+    },
+    "expect": {
+      "result": {
+        "accepts": [
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "payTo": "0x1111111111111111111111111111111111111111",
+            "price": {
+              "asset": "0x3333333333333333333333333333333333333333",
+              "amount": "1000000"
+            },
+            "maxTimeoutSeconds": 300,
+            "extra": {
+              "assetName": "USDC",
+              "name": "USDC",
+              "version": "2",
+              "assetTransferMethod": "permit2",
+              "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+              "supportsEip7702": true,
+              "supportsEip2612": true
+            }
+          }
+        ],
+        "extensions": {
+          "eip2612GasSponsoring": {
+            "info": {
+              "description": "The facilitator accepts EIP-2612 gasless Permit to `Permit2` canonical contract.",
+              "version": "1"
+            },
+            "schema": {
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]{40}$",
+                  "description": "The address of the sender."
+                },
+                "asset": {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]{40}$",
+                  "description": "The address of the ERC-20 token contract."
+                },
+                "spender": {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]{40}$",
+                  "description": "The address of the spender (Canonical Permit2)."
+                },
+                "amount": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$",
+                  "description": "The amount to approve (uint256). Typically MaxUint."
+                },
+                "nonce": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$",
+                  "description": "The current nonce of the sender."
+                },
+                "deadline": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$",
+                  "description": "The timestamp at which the signature expires."
+                },
+                "signature": {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "The 65-byte concatenated signature (r, s, v) as a hex string."
+                },
+                "version": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]+)*$",
+                  "description": "Schema version identifier."
+                }
+              },
+              "required": [
+                "from",
+                "asset",
+                "spender",
+                "amount",
+                "nonce",
+                "deadline",
+                "signature",
+                "version"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "x402.seller.sponsorship-eip2612-missing-domain",
+    "suite": "x402-seller",
+    "operation": "x402.seller.route",
+    "input": {
+      "config": {
+        "sellerId": "11111111-1111-4111-8111-111111111111",
+        "assets": [
+          {
+            "assetId": "0x3333333333333333333333333333333333333333",
+            "assetName": "USDC",
+            "currency": "USDC",
+            "blockchain": "BASE",
+            "network": "eip155:8453",
+            "decimals": 6,
+            "assetTransferMethod": "eip3009",
+            "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+            "tokenName": "USDC",
+            "supportsEip7702": true,
+            "supportsEip2612": true
+          }
+        ],
+        "wallets": [
+          {
+            "address": "0x1111111111111111111111111111111111111111",
+            "blockchain": "BASE",
+            "network": "eip155:8453"
+          }
+        ],
+        "paymentMethods": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "payTo": "11111111-1111-4111-8111-111111111111",
+            "decimals": 8
+          }
+        ],
+        "supported": [
+          {
+            "scheme": "balance",
+            "network": "inflow:1",
+            "x402Version": 2
+          },
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2
+          }
+        ]
+      },
+      "supported": {
+        "kinds": [
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "x402Version": 2,
+            "extra": {
+              "supportsEip7702": true
+            }
+          }
+        ],
+        "extensions": [
+          "eip2612GasSponsoring",
+          "inflowEip7702GasSponsoring"
+        ]
+      },
+      "options": {
+        "price": "$1",
+        "schemes": [
+          "exact"
+        ],
+        "assetTransferMethod": "permit2"
+      }
+    },
+    "expect": {
+      "result": {
+        "accepts": [
+          {
+            "scheme": "exact",
+            "network": "eip155:8453",
+            "payTo": "0x1111111111111111111111111111111111111111",
+            "price": {
+              "asset": "0x3333333333333333333333333333333333333333",
+              "amount": "1000000"
+            },
+            "maxTimeoutSeconds": 300,
+            "extra": {
+              "assetName": "USDC",
+              "name": "USDC",
+              "assetTransferMethod": "permit2",
+              "permit2Proxy": "0x402085c248EeA27D92E8b30b2C58ed07f9E20001",
+              "supportsEip7702": true,
+              "supportsEip2612": true
+            }
+          }
+        ],
+        "extensions": {
+          "inflowEip7702GasSponsoring": {
+            "info": {
+              "version": "1"
+            }
+          }
+        }
+      }
+    }
+  }
+]

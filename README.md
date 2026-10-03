@@ -13,7 +13,8 @@ configuration, protocol integration, and Buyer and Seller roles.
 | [`inflow-mpp-seller`](crates/inflow-mpp-seller/README.md) | Signed offers, credential validation, and settlement for InFlow and Tempo charges. |
 | `inflow-x402` | InFlow integration with the x402 protocol. |
 | `inflow-x402-buyer` | Buyer integration for InFlow x402 payments. |
-| `inflow-x402-seller` | Seller integration for InFlow x402 payments. |
+| [`inflow-x402-seller`](crates/inflow-x402-seller/README.md) | Seller configuration, offers, verification, and settlement for x402 payments. |
+| [`inflow-x402-axum`](crates/inflow-x402-axum/README.md) | Optional Axum/Tower protected routes using upstream x402 middleware. |
 
 ## Environments
 

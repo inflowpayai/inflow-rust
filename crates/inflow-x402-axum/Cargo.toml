@@ -1,27 +1,30 @@
 [package]
-name = "inflow-x402-seller"
+name = "inflow-x402-axum"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Seller integration for InFlow x402 payments."
+description = "Axum and Tower integration for InFlow x402 Seller routes."
 readme = "README.md"
 include = ["src/**", "tests/**", "README.md", "LICENSE"]
 
 [dependencies]
-inflow-core = { path = "../inflow-core", version = "0.1.0" }
+axum = { version = "0.8", default-features = false }
+http.workspace = true
 inflow-x402 = { path = "../inflow-x402", version = "0.1.0" }
+inflow-x402-seller = { path = "../inflow-x402-seller", version = "0.1.0" }
 serde.workspace = true
 serde_json.workspace = true
-tokio.workspace = true
-tokio-util.workspace = true
+tower = { version = "0.5", features = ["util"] }
+url.workspace = true
+x402-axum.workspace = true
 x402-types.workspace = true
 
 [dev-dependencies]
-http.workspace = true
-tokio = { workspace = true, features = ["test-util"] }
+inflow-core = { path = "../inflow-core", version = "0.1.0" }
+tokio.workspace = true
 
 [lints]
 workspace = true
