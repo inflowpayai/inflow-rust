@@ -8,6 +8,7 @@ members = [
     "crates/inflow-x402",
     "crates/inflow-x402-buyer",
     "crates/inflow-x402-seller",
+    "crates/inflow-x402-axum",
 ]
 
 [workspace.package]
@@ -39,7 +40,9 @@ sha2 = "0.11"
 time = { version = "0.3", features = ["parsing"] }
 tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["rt"] }
+url = "2"
 uuid = { version = "1", features = ["v4"] }
+x402-axum = { version = "~2.0.2", default-features = false }
 x402-chain-eip155 = { version = "~2.0.2", default-features = false, features = ["client", "tracing"] }
 x402-chain-solana = { version = "~2.0.2", default-features = false, features = ["client"] }
 x402-types = { version = "~2.0.2", default-features = false }
