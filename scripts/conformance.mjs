@@ -49,13 +49,13 @@ export function metadata(cargo) {
   };
 }
 
-export function buildAdapter() {
+export function buildAdapter(name = "adapter") {
   const build = command("cargo", [
     "test",
     "-p",
     "inflow-conformance",
     "--test",
-    "adapter",
+    name,
     "--no-run",
     "--locked",
     "--message-format=json",
@@ -64,7 +64,7 @@ export function buildAdapter() {
   const binary = artifacts.find(
     (item) =>
       item.reason === "compiler-artifact" &&
-      item.target.name === "adapter" &&
+      item.target.name === name &&
       item.executable,
   )?.executable;
   if (!binary) throw new Error("No conformance test executable produced");

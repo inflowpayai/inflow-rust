@@ -60,6 +60,9 @@ The [shared conformance checks](conformance/README.md) run public SDK operations
 against pinned InFlow contracts and local HTTP fixtures. CI retains the reports,
 including explicitly unsupported capabilities, for minimum and stable Rust.
 
+The [Node interoperability checks](interop/README.md) exchange payments between
+Rust and Node Buyers and Sellers over HTTP, using a synthetic InFlow platform.
+
 ## References
 
 For differences from upstream MPP credential and header handling, see the

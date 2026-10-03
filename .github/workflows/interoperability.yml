@@ -1,0 +1,66 @@
+name: Node interoperability
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  interoperability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: ["1.93.0", stable]
+    defaults:
+      run:
+        working-directory: sdk
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: sdk
+          persist-credentials: false
+      - name: Read pinned revisions
+        id: pins
+        run: |
+          echo "node=$(jq -r .revision interop/node.lock.json)" >> "$GITHUB_OUTPUT"
+          echo "contract=$(jq -r .revision conformance/inflow-specs.lock.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          repository: inflowpayai/inflow-node
+          ref: ${{ steps.pins.outputs.node }}
+          path: node-sdk
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: inflowpayai/inflow-specs
+          ref: ${{ steps.pins.outputs.contract }}
+          path: contract
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: node-sdk/package.json
+      - run: pnpm install --frozen-lockfile
+        working-directory: node-sdk
+      - run: pnpm build
+        working-directory: node-sdk
+      - name: Install Rust
+        run: |
+          rustup toolchain install ${{ matrix.toolchain }} --profile minimal
+          rustup override set ${{ matrix.toolchain }}
+      - name: Run payment exchanges
+        run: node scripts/interoperability.mjs ../node-sdk "$RUNNER_TEMP/interoperability.json" ../contract
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rust-node-interoperability-${{ matrix.toolchain }}
+          path: ${{ runner.temp }}/interoperability.json
+          if-no-files-found: error
