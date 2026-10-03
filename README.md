@@ -45,7 +45,8 @@ cargo install cargo-llvm-cov --version 0.8.7 --locked
 ```
 
 Run `make verify` for formatting, Clippy, tests, documentation, package construction
-and compilation, dependency policy, and coverage. Run `make format` to format code.
+and compilation, dependency policy, coverage, and adapter tooling tests. Node.js 24
+is required for the tooling tests. Run `make format` to format code.
 Coverage requires at least 99% of executable source lines in each file, and 99% of
 lines, functions, and regions overall; the goal is 100%. Test files are excluded
 from the coverage report. The tool also excludes `examples/`; its application
@@ -54,6 +55,10 @@ Codecov receives the same `lcov.info` report and enforces 99% project and patch 
 
 The workspace uses coordinated crate versions. `Cargo.lock` records the dependency
 tree tested by CI; consumers resolve dependencies through each crate's manifest.
+
+The [shared conformance checks](conformance/README.md) run public SDK operations
+against pinned InFlow contracts and local HTTP fixtures. CI retains the reports,
+including explicitly unsupported capabilities, for minimum and stable Rust.
 
 ## References
 
