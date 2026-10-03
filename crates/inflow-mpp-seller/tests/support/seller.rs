@@ -518,6 +518,7 @@ async fn bad_provenance_body_and_route_terms_never_reach_platform() {
 #[tokio::test]
 async fn validation_rejects_inconsistent_envelopes_and_preserves_problems() {
     for patch in [
+        json!({"success":false,"problem":{"type":"https://paymentauth.org/problems/verification-failed","title":"Payment Verification Failed","status":402,"detail":"denied","hint":"Use another payment method.","extensions":{"reason":"declined"}}}),
         json!({"success":false,"problem":{"detail":"denied","extensions":{"key":"value"}}}),
         json!({"success":false}),
         json!({"challenge":{}}),
@@ -539,6 +540,7 @@ async fn validation_rejects_inconsistent_envelopes_and_preserves_problems() {
         assert_eq!(error.code, "MPP_PAYMENT_FAILED");
         if let Some(p) = patch.get("problem") {
             assert_eq!(*error.body, *p);
+            assert_eq!(error.to_string(), "denied");
         }
         assert_eq!(script.requests.lock().unwrap().len(), 2);
     }
@@ -666,6 +668,7 @@ async fn broadcast_retries_reuse_key_and_disabled_flag_omits_it() {
 async fn terminal_failure_network_failure_and_cancellation_never_become_receipts() {
     for result in [
         json!({}),
+        json!({"problem":{"type":"https://paymentauth.org/problems/settlement-unavailable","title":"Settlement Pending","status":503,"detail":"denied","extensions":{"retryAfter":5}}}),
         json!({"problem":{"detail":"denied"}}),
         json!({"receipt":{"status":"failed"}}),
     ] {
@@ -682,6 +685,7 @@ async fn terminal_failure_network_failure_and_cancellation_never_become_receipts
         assert_eq!(error.code, "MPP_PAYMENT_FAILED");
         if let Some(p) = result.get("problem") {
             assert_eq!(*error.body, *p);
+            assert_eq!(error.to_string(), "denied");
         }
     }
     for during_broadcast in [false, true] {
@@ -720,6 +724,24 @@ async fn terminal_failure_network_failure_and_cancellation_never_become_receipts
     };
     let (result, ()) = tokio::join!(operation, cancel);
     assert_eq!(err(result).code, "CANCELLED");
+}
+
+#[tokio::test]
+async fn malformed_problem_messages_have_a_stable_fallback() {
+    for detail in [Value::Null, json!(""), json!(false)] {
+        let (seller, _) = seller(vec![
+            Reply::Config(config()),
+            Reply::Validate(json!({"success":false,"problem":{"detail":detail}})),
+        ])
+        .await;
+        let offer = offer(&seller);
+        let error = err(offer
+            .validate(&credential(&offer, None), None, &CancellationToken::new())
+            .await);
+        assert_eq!(error.code, "MPP_PAYMENT_FAILED");
+        assert_eq!(error.to_string(), "payment verification failed");
+        assert_eq!(error.body["detail"], detail);
+    }
 }
 
 #[tokio::test]

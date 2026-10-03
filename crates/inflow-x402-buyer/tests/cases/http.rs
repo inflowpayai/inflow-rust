@@ -358,3 +358,78 @@ async fn redirects_nonpayment_and_already_paid_responses_never_sign() {
         );
     }
 }
+
+#[tokio::test]
+async fn paid_post_replays_once_without_following_redirects_or_replacing_service_auth() {
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
+    for paid_status in [200, 307, 402] {
+        let target = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let destination = format!("http://{}/other", target.local_addr().unwrap());
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/resource", listener.local_addr().unwrap());
+        let challenge = inflow_x402::encode(&serde_json::to_value(required(None)).unwrap());
+        let server = tokio::spawn(async move {
+            for step in 0..2 {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut bytes = Vec::new();
+                while !bytes.ends_with(b"\r\n\r\n") {
+                    bytes.push(stream.read_u8().await.unwrap());
+                }
+                let headers = String::from_utf8(bytes).unwrap();
+                assert!(headers.starts_with("POST /resource HTTP/1.1"));
+                let header = |name: &str| {
+                    headers.lines().find_map(|line| {
+                        let (key, value) = line.split_once(':')?;
+                        key.eq_ignore_ascii_case(name).then_some(value.trim())
+                    })
+                };
+                assert_eq!(header("authorization"), Some("Bearer service-session"));
+                assert_eq!(header("cookie"), Some("service=session"));
+                assert!(header("x-api-key").is_none());
+                assert_eq!(header("payment-signature").is_some(), step == 1);
+                let length: usize = header("content-length").unwrap().parse().unwrap();
+                let mut body = vec![0; length];
+                stream.read_exact(&mut body).await.unwrap();
+                assert_eq!(body, b"request-body");
+                let (status, extra) = if step == 0 {
+                    (402, format!("Payment-Required: {challenge}\r\n"))
+                } else {
+                    (paid_status, format!("Location: {destination}\r\n"))
+                };
+                stream.write_all(format!("HTTP/1.1 {status} Result\r\n{extra}Content-Length: 0\r\nConnection: close\r\n\r\n").as_bytes()).await.unwrap();
+            }
+        });
+        let calls = Arc::new(AtomicUsize::new(0));
+        // Only signing is synthetic; execute uses the real merchant HTTP client and replay path.
+        let buyer = HttpBuyer::new(None).unwrap().register(Scheme {
+            payload: json!({"payload":{"proof":"synthetic"}}),
+            calls: calls.clone(),
+        });
+        let request = reqwest::Client::new()
+            .post(url)
+            .bearer_auth("service-session")
+            .header("cookie", "service=session")
+            .body("request-body")
+            .build()
+            .unwrap();
+        let (sign, wait, token) = options();
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            buyer.execute(request, sign, wait, &token),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(response.status().as_u16(), paid_status);
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        server.await.unwrap();
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(30), target.accept())
+                .await
+                .is_err()
+        );
+    }
+}

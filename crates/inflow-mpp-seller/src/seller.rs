@@ -495,7 +495,11 @@ fn problem(result: &Value, operation: &str) -> Error {
             "detail": format!("The PSP {operation} response was malformed.")
         })
     });
-    let mut error = Error::new("MPP_PAYMENT_FAILED", "payment verification failed");
+    let message = body["detail"]
+        .as_str()
+        .filter(|value| !value.is_empty())
+        .unwrap_or("payment verification failed");
+    let mut error = Error::new("MPP_PAYMENT_FAILED", message);
     *error.body = body;
     error
 }
