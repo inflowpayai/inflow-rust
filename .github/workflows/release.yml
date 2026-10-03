@@ -96,11 +96,11 @@ jobs:
         with:
           node-version: "24"
       - run: rustup toolchain install 1.93.0 --profile minimal
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: release-packages
           path: ${{ runner.temp }}/packages
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: release-reports
           path: ${{ runner.temp }}/reports
