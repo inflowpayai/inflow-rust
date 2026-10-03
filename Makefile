@@ -25,6 +25,6 @@ test:
 	cargo test --workspace --all-features --locked
 
 tooling-test:
-	node --test scripts/conformance.test.mjs
+	node --test scripts/*.test.mjs
 
 verify: format-check lint test docs package dependency coverage tooling-test

@@ -33,6 +33,10 @@ jobs:
           tool: cargo-deny@0.19.8,cargo-llvm-cov@0.8.7
           fallback: none
       - run: make verify
+      - name: Verify packaged consumers
+        run: |
+          node scripts/release.mjs prepare "$RUNNER_TEMP/packages"
+          node scripts/verify-consumer.mjs packages "$RUNNER_TEMP/packages"
       - uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.toolchain }}
