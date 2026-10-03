@@ -68,12 +68,12 @@ jobs:
       - name: Read version
         id: version
         run: echo "version=$(jq -r .version "$RUNNER_TEMP/packages/manifest.json")" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-packages
           path: ${{ runner.temp }}/packages/*
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-reports
           path: ${{ runner.temp }}/reports/*
