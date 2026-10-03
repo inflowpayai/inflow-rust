@@ -9,7 +9,7 @@ configuration, protocol integration, and Buyer and Seller roles.
 | --- | --- |
 | `inflow-core` | Shared InFlow environment and client configuration. |
 | [`inflow-mpp`](crates/inflow-mpp/README.md) | MPP codecs, method-field validation, and shared InFlow protocol integration. |
-| `inflow-mpp-buyer` | Buyer integration for InFlow MPP payments. |
+| [`inflow-mpp-buyer`](crates/inflow-mpp-buyer/README.md) | Payment creation, approval polling, subscription authorization, and cancellation for MPP Buyers. |
 | `inflow-mpp-seller` | Seller integration for InFlow MPP payments. |
 | `inflow-x402` | InFlow integration with the x402 protocol. |
 | `inflow-x402-buyer` | Buyer integration for InFlow x402 payments. |

@@ -601,6 +601,15 @@ dependencies = [
 [[package]]
 name = "inflow-mpp-buyer"
 version = "0.1.0"
+dependencies = [
+ "http",
+ "inflow-core",
+ "inflow-mpp",
+ "reqwest",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+]
 
 [[package]]
 name = "inflow-mpp-seller"

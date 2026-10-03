@@ -2,7 +2,10 @@
 
 use crate::codec::invalid;
 use http::{HeaderMap, HeaderValue, Method};
-use inflow_core::{ClientOptions, Error, internal::HttpClient};
+use inflow_core::{
+    ClientOptions, Error,
+    internal::{ApprovalCleanup, HttpClient},
+};
 use serde_json::{Value, json};
 use tokio_util::sync::CancellationToken;
 
@@ -10,6 +13,27 @@ use tokio_util::sync::CancellationToken;
 pub struct MppClient(HttpClient);
 
 impl MppClient {
+    pub fn approval_cleanup(&self, id: &str) -> Result<ApprovalCleanup, Error> {
+        ApprovalCleanup::new(self.0.clone(), id)
+    }
+
+    pub async fn poll_transaction(
+        &self,
+        id: &str,
+        cancellation: &CancellationToken,
+    ) -> Result<Value, Error> {
+        // Buyer polling owns its deadline and error policy; do not insert transport retry delays.
+        self.call(
+            Method::GET,
+            &format!("/v1/transactions/{}/mpp", segment(id)?),
+            None,
+            None,
+            0,
+            cancellation,
+        )
+        .await
+    }
+
     pub fn new(options: ClientOptions) -> Result<Self, Error> {
         Ok(Self(HttpClient::new(options)?))
     }
