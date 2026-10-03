@@ -22,6 +22,11 @@ repository = "https://github.com/inflowpayai/inflow-rust"
 unsafe_code = "forbid"
 
 [workspace.dependencies]
+alloy-eip7702 = "0.6"
+alloy-primitives = "1.6"
+alloy-signer = "2"
+alloy-signer-local = "2"
+alloy-sol-types = "1.6"
 base64 = "0.22"
 fastrand = "2"
 futures-util = "0.3"
@@ -35,4 +40,6 @@ time = { version = "0.3", features = ["parsing"] }
 tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 uuid = { version = "1", features = ["v4"] }
+x402-chain-eip155 = { version = "~2.0.2", default-features = false, features = ["client", "tracing"] }
+x402-chain-solana = { version = "~2.0.2", default-features = false, features = ["client"] }
 x402-types = { version = "~2.0.2", default-features = false }
