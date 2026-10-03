@@ -9,6 +9,7 @@ members = [
     "crates/inflow-x402-buyer",
     "crates/inflow-x402-seller",
     "crates/inflow-x402-axum",
+    "examples",
 ]
 
 [workspace.package]

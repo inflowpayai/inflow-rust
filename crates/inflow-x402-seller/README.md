@@ -6,6 +6,9 @@ use `inflow-x402-axum` to protect Axum routes with the upstream middleware.
 
 ## Prerequisites
 
+For a runnable Axum server and matching Buyer, follow the
+[Sandbox example walkthrough](https://github.com/inflowpayai/inflow-rust/tree/main/examples#x402).
+
 Create an InFlow **Seller** account and generate its API key:
 
 - [Sandbox registration](https://sandbox.inflowpay.ai) for testing.

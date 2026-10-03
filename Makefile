@@ -19,7 +19,7 @@ lint:
 	cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
 package:
-	cargo package --workspace --allow-dirty --locked
+	cargo package --workspace --exclude inflow-examples --allow-dirty --locked
 
 test:
 	cargo test --workspace --all-features --locked

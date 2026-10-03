@@ -12,6 +12,9 @@ The handler can run inside any HTTP framework using the application's Tokio runt
 
 ## Account and setup
 
+For a runnable HTTP server and matching Buyer, follow the
+[Sandbox example walkthrough](https://github.com/inflowpayai/inflow-rust/tree/main/examples#mpp).
+
 Use an InFlow **Seller** account and its API key. A Developer account does not
 authorize Seller configuration, validation, or settlement.
 [Sandbox](https://sandbox.inflowpay.ai) and [production](https://app.inflowpay.ai)

@@ -12,6 +12,9 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 ## InFlow-managed payments
 
+For a runnable Buyer and matching Seller, follow the
+[Sandbox example walkthrough](https://github.com/inflowpayai/inflow-rust/tree/main/examples#x402).
+
 Create an InFlow account and API key in [Sandbox](https://sandbox.inflowpay.ai) for
 testing or [production](https://app.inflowpay.ai) for live payments. Buyer endpoints
 accept authenticated accounts; a Seller account can also act as a Buyer. Keep the
