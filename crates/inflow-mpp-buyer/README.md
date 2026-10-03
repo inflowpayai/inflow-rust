@@ -11,6 +11,9 @@ owns that step.
 
 ## Account and client
 
+For a runnable Buyer and matching Seller, follow the
+[Sandbox example walkthrough](https://github.com/inflowpayai/inflow-rust/tree/main/examples#mpp).
+
 Use an InFlow account permitted to buy, with its API key or OAuth access token.
 A Seller account can also act as a buyer; it is not necessary to create a second
 account just because the account is a Seller.

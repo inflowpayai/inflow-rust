@@ -3,20 +3,29 @@
 Rust crates for InFlow MPP and x402 integrations. The workspace separates shared
 configuration, protocol integration, and Buyer and Seller roles.
 
+Start with the [runnable Sandbox examples](examples/README.md) for account setup,
+exact commands, approval waiting, receipt inspection, and failure handling.
+
 ## Crate layout
 
-| Crate | Responsibility |
-| --- | --- |
-| `inflow-core` | Shared InFlow environment and client configuration. |
-| [`inflow-mpp`](crates/inflow-mpp/README.md) | MPP codecs, method-field validation, and shared InFlow protocol integration. |
-| [`inflow-mpp-buyer`](crates/inflow-mpp-buyer/README.md) | Payment creation, approval polling, subscription authorization, and cancellation for MPP Buyers. |
-| [`inflow-mpp-seller`](crates/inflow-mpp-seller/README.md) | Signed offers, credential validation, and settlement for InFlow and Tempo charges. |
-| `inflow-x402` | InFlow integration with the x402 protocol. |
-| `inflow-x402-buyer` | Buyer integration for InFlow x402 payments. |
-| [`inflow-x402-seller`](crates/inflow-x402-seller/README.md) | Seller configuration, offers, verification, and settlement for x402 payments. |
-| [`inflow-x402-axum`](crates/inflow-x402-axum/README.md) | Optional Axum/Tower protected routes using upstream x402 middleware. |
+| Crate                                                       | Responsibility                                                                                   |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [`inflow-core`](crates/inflow-core/README.md)               | Shared InFlow environment and client configuration.                                              |
+| [`inflow-mpp`](crates/inflow-mpp/README.md)                 | MPP codecs, method-field validation, and shared InFlow protocol integration.                     |
+| [`inflow-mpp-buyer`](crates/inflow-mpp-buyer/README.md)     | Payment creation, approval polling, subscription authorization, and cancellation for MPP Buyers. |
+| [`inflow-mpp-seller`](crates/inflow-mpp-seller/README.md)   | Signed offers, credential validation, and settlement for InFlow and Tempo charges.               |
+| [`inflow-x402`](crates/inflow-x402/README.md)               | InFlow integration with the x402 protocol.                                                       |
+| [`inflow-x402-buyer`](crates/inflow-x402-buyer/README.md)   | Buyer integration for InFlow x402 payments.                                                      |
+| [`inflow-x402-seller`](crates/inflow-x402-seller/README.md) | Seller configuration, offers, verification, and settlement for x402 payments.                    |
+| [`inflow-x402-axum`](crates/inflow-x402-axum/README.md)     | Optional Axum/Tower protected routes using upstream x402 middleware.                             |
 
 ## Environments
+
+Seller integrations require an InFlow **Seller** account and its dashboard API key.
+Buyer integrations accept accounts permitted to buy; Sellers can also act as Buyers.
+Register in [Sandbox](https://sandbox.inflowpay.ai) for testing or
+[production](https://app.inflowpay.ai) for live payments. Credentials are separate
+between environments. API keys authorize requests; they do not fund wallets.
 
 `inflow_core::Environment` selects the InFlow API environment:
 
@@ -39,8 +48,8 @@ Run `make verify` for formatting, Clippy, tests, documentation, package construc
 and compilation, dependency policy, and coverage. Run `make format` to format code.
 Coverage requires at least 99% of executable source lines in each file, and 99% of
 lines, functions, and regions overall; the goal is 100%. Test files are excluded
-from the coverage report. Documentation-only crates have no executable coverage;
-that is not evidence that their payment integrations are implemented or tested.
+from the coverage report. The tool also excludes `examples/`; its application
+tests run in the workspace but are not represented by SDK coverage percentages.
 Codecov receives the same `lcov.info` report and enforces 99% project and patch coverage.
 
 The workspace uses coordinated crate versions. `Cargo.lock` records the dependency
