@@ -3135,6 +3135,7 @@ dependencies = [
  "inflow-mpp-buyer",
  "inflow-mpp-seller",
  "inflow-x402",
+ "inflow-x402-axum",
  "inflow-x402-buyer",
  "inflow-x402-seller",
  "reqwest 0.13.5",
