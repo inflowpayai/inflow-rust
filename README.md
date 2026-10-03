@@ -65,6 +65,9 @@ Rust and Node Buyers and Sellers over HTTP, using a synthetic InFlow platform.
 
 ## References
 
+Maintainers: see [release preparation and publishing](RELEASING.md) for the manual
+workflow, first-publication token setup, and Trusted Publishing configuration.
+
 For differences from upstream MPP credential and header handling, see the
 [MPP compatibility notes](crates/inflow-mpp/README.md#differences-from-upstream-mpp-014).
 

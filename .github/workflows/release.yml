@@ -1,0 +1,143 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish crates and create the GitHub release
+        type: boolean
+        default: false
+
+concurrency:
+  group: inflow-rust-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    if: github.repository == 'inflowpayai/inflow-rust' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: sdk
+      - name: Read reference pins
+        id: pins
+        run: |
+          echo "node=$(jq -r .revision sdk/interop/node.lock.json)" >> "$GITHUB_OUTPUT"
+          echo "contract=$(jq -r .revision sdk/conformance/inflow-specs.lock.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          repository: inflowpayai/inflow-node
+          ref: ${{ steps.pins.outputs.node }}
+          path: node-sdk
+      - uses: actions/checkout@v7
+        with:
+          repository: inflowpayai/inflow-specs
+          ref: ${{ steps.pins.outputs.contract }}
+          path: contract
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: node-sdk/package.json
+      - run: pnpm install --frozen-lockfile && pnpm build
+        working-directory: node-sdk
+      - run: pnpm install --frozen-lockfile
+        working-directory: contract
+      - name: Install Rust
+        run: rustup toolchain install 1.93.0 --profile minimal --component clippy,rustfmt,llvm-tools-preview
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.19.8,cargo-llvm-cov@0.8.7
+          fallback: none
+      - name: Verify and prepare
+        working-directory: sdk
+        run: |
+          make verify
+          mkdir "$RUNNER_TEMP/reports"
+          node scripts/conformance.mjs --contract-root ../contract --output-dir "$RUNNER_TEMP/reports"
+          node scripts/interoperability.mjs ../node-sdk "$RUNNER_TEMP/reports/interoperability.json" ../contract
+          node scripts/release.mjs prepare "$RUNNER_TEMP/packages"
+          node scripts/verify-consumer.mjs packages "$RUNNER_TEMP/packages"
+      - name: Read version
+        id: version
+        run: echo "version=$(jq -r .version "$RUNNER_TEMP/packages/manifest.json")" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-packages
+          path: ${{ runner.temp }}/packages/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-reports
+          path: ${{ runner.temp }}/reports/*
+          if-no-files-found: error
+
+  publish:
+    if: inputs.publish
+    needs: prepare
+    environment: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - run: rustup toolchain install 1.93.0 --profile minimal
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-packages
+          path: ${{ runner.temp }}/packages
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-reports
+          path: ${{ runner.temp }}/reports
+      - name: Check release identity before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          tag="v$VERSION"
+          if git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
+            test "$(git rev-list -n 1 "$tag")" = "$GITHUB_SHA"
+          fi
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases" > "$RUNNER_TEMP/releases.json"
+          jq -e --arg tag "$tag" 'all(.[][]; .tag_name != $tag)' "$RUNNER_TEMP/releases.json"
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: crates
+      - name: Publish and verify consumer
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+        run: |
+          node scripts/release.mjs publish "$RUNNER_TEMP/packages"
+          node scripts/verify-consumer.mjs registry "$RUNNER_TEMP/packages"
+      - uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: ${{ runner.temp }}/packages/*.crate
+      - name: Tag and create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          tag="v$VERSION"
+          if git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
+            test "$(git rev-list -n 1 "$tag")" = "$GITHUB_SHA"
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git tag -a "$tag" -m "InFlow Rust $tag" "$GITHUB_SHA"
+            git push origin "$tag"
+          fi
+          gh release create "$tag" "$RUNNER_TEMP"/packages/* "$RUNNER_TEMP"/reports/*.json --verify-tag --generate-notes --title "InFlow Rust $tag"
