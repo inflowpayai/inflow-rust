@@ -139,6 +139,22 @@ impl MppClient {
         .await
     }
 
+    pub async fn broadcast_without_key(
+        &self,
+        credential: Value,
+        cancellation: &CancellationToken,
+    ) -> Result<Value, Error> {
+        self.call(
+            Method::POST,
+            "/v1/mpp/broadcast",
+            Some(json!({"credential": credential})),
+            None,
+            3,
+            cancellation,
+        )
+        .await
+    }
+
     async fn call(
         &self,
         method: Method,

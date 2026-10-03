@@ -8,7 +8,22 @@ authors.workspace = true
 repository.workspace = true
 description = "Seller integration for InFlow MPP payments."
 readme = "README.md"
-include = ["src/**", "README.md", "LICENSE"]
+include = ["src/**", "tests/**", "README.md", "LICENSE"]
+
+[dependencies]
+inflow-core = { path = "../inflow-core", version = "0.1.0" }
+inflow-mpp = { path = "../inflow-mpp", version = "0.1.0" }
+mpp = { workspace = true, features = ["server"] }
+serde = { version = "1", features = ["derive"] }
+serde_json.workspace = true
+time = { workspace = true, features = ["formatting"] }
+tokio-util.workspace = true
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+http.workspace = true
+reqwest.workspace = true
+tokio = { workspace = true, features = ["test-util", "net", "io-util"] }
 
 [lints]
 workspace = true
