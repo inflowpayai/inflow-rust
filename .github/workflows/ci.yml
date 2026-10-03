@@ -37,7 +37,7 @@ jobs:
         run: |
           node scripts/release.mjs prepare "$RUNNER_TEMP/packages"
           node scripts/verify-consumer.mjs packages "$RUNNER_TEMP/packages"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ matrix.toolchain }}
           path: lcov.info
@@ -80,7 +80,7 @@ jobs:
         run: |
           mkdir ../reports
           node scripts/conformance.mjs --contract-root ../contract --output-dir ../reports
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: conformance-${{ matrix.toolchain }}
