@@ -133,6 +133,14 @@ impl Payment {
         self.cleanup.cancel().await
     }
     /// Consumes this handle; concurrent callers cannot create duplicate polling loops.
+    ///
+    /// ```compile_fail,E0382
+    /// async fn wait_twice(payment: inflow_x402_buyer::Payment) {
+    ///     let options = inflow_x402_buyer::WaitOptions::default();
+    ///     let _ = payment.wait(options).await;
+    ///     let _ = payment.wait(options).await;
+    /// }
+    /// ```
     pub async fn wait(mut self, options: WaitOptions) -> Result<EncodedPayment, Error> {
         let cancellation = self.cancellation.clone();
         let result = tokio::select! {

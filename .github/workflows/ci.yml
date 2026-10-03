@@ -21,6 +21,9 @@ jobs:
         toolchain: ["1.93.0", stable]
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
       - name: Install Rust
         run: |
           rustup toolchain install ${{ matrix.toolchain }} --profile minimal --component clippy,rustfmt,llvm-tools-preview
@@ -34,6 +37,50 @@ jobs:
         with:
           name: coverage-${{ matrix.toolchain }}
           path: lcov.info
+          if-no-files-found: error
+
+  conformance:
+    name: conformance (${{ matrix.toolchain }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: ['1.93.0', stable]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: sdk
+      - name: Read contract pin
+        id: contract
+        run: echo "revision=$(jq -r .revision sdk/conformance/inflow-specs.lock.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          repository: inflowpayai/inflow-specs
+          ref: ${{ steps.contract.outputs.revision }}
+          path: contract
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.20.0'
+      - run: pnpm install --frozen-lockfile
+        working-directory: contract
+      - name: Install Rust
+        working-directory: sdk
+        run: |
+          rustup toolchain install ${{ matrix.toolchain }} --profile minimal
+          rustup override set ${{ matrix.toolchain }}
+      - name: Run shared conformance
+        working-directory: sdk
+        run: |
+          mkdir ../reports
+          node scripts/conformance.mjs --contract-root ../contract --output-dir ../reports
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: conformance-${{ matrix.toolchain }}
+          path: reports/*.json
           if-no-files-found: error
 
   codecov:
