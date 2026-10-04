@@ -19,6 +19,9 @@ harness = false
 [dev-dependencies]
 axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
 http.workspace = true
+base64.workspace = true
+futures-util.workspace = true
+inflow-tap-seller = { path = "../crates/inflow-tap-seller", version = "0.1.0" }
 inflow-core = { path = "../crates/inflow-core", version = "0.1.0" }
 inflow-mpp = { path = "../crates/inflow-mpp", version = "0.1.0" }
 inflow-mpp-buyer = { path = "../crates/inflow-mpp-buyer", version = "0.1.0" }

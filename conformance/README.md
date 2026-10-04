@@ -40,6 +40,10 @@ artifacts for both the minimum and stable Rust compilers.
   settlement, pending retries, and sponsoring declarations. Offer cases supply
   configuration through the public transport and project the typed offer into
   the shared result shape; they do not rebuild offer calculations.
+- TAP: the public verifier, protected callback, trusted-key resolver and replay
+  store verify real signed requests. The built-in resolver fetches from the
+  runner's loopback key endpoint; the adapter does not implement parsing,
+  signature verification, key caching or replay protection.
 
 HTTP cases use the runner's loopback server through `Transport`. The adapter
 refuses external destinations, disables redirects and transport retries, and
@@ -59,7 +63,7 @@ handle; its compile-fail documentation test verifies the ownership restriction.
 The consuming-handle fixture profile requires cleanup after failed waits.
 
 Both omissions appear in reports as skipped, never passed. All other selected
-cases are mandatory. Stripe SPT and TAP are outside these suites. These reports
+cases are mandatory. Stripe SPT is outside these suites. These reports
 do not claim live platform interoperability or cross-language payment exchange.
 
 `make verify` also tests the adapter message boundary and runner configuration.

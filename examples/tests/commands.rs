@@ -2,6 +2,15 @@ use std::process::Command;
 
 #[test]
 fn all_programs_explain_missing_configuration_without_a_network_call() {
+    let output = Command::new(env!("CARGO_BIN_EXE_tap-seller"))
+        .env_remove("PUBLIC_ORIGIN")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        "Set PUBLIC_ORIGIN; see examples/README.md.\n"
+    );
     for binary in [
         env!("CARGO_BIN_EXE_mpp-buyer"),
         env!("CARGO_BIN_EXE_mpp-seller"),

@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "conformance",
     "crates/inflow-core",
+    "crates/inflow-tap-seller",
     "crates/inflow-mpp",
     "crates/inflow-mpp-buyer",
     "crates/inflow-mpp-seller",
@@ -31,6 +32,7 @@ alloy-signer = "2"
 alloy-signer-local = "2"
 alloy-sol-types = "1.6"
 base64 = "0.22"
+ed25519-dalek = { version = "2.2", default-features = false, features = ["std", "fast"] }
 fastrand = "2"
 futures-util = "0.3"
 http = "1"

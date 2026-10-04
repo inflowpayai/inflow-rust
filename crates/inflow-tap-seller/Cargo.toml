@@ -1,0 +1,28 @@
+[package]
+name = "inflow-tap-seller"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Trusted Agent Protocol request verification for Sellers."
+readme = "README.md"
+include = ["src/**", "README.md", "LICENSE"]
+
+[dependencies]
+base64.workspace = true
+ed25519-dalek.workspace = true
+futures-util.workspace = true
+http.workspace = true
+reqwest.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["net", "io-util", "test-util", "rt-multi-thread"] }
+
+[lints]
+workspace = true

@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 export const root = resolve(import.meta.dirname, "..");
 export const crates = [
   "inflow-core",
+  "inflow-tap-seller",
   "inflow-mpp",
   "inflow-mpp-buyer",
   "inflow-mpp-seller",
