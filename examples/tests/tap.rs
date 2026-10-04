@@ -65,7 +65,11 @@ async fn actual_http_example_requires_tap_and_rejects_replay() {
             .unwrap();
         assert_eq!(response.status(), expected);
     }
-    for (nonce, body) in [("empty", ""), ("json", "{\"query\":\"shoes\"}")] {
+    for (nonce, method, body) in [
+        ("empty", reqwest::Method::POST, ""),
+        ("json", reqwest::Method::POST, "{\"query\":\"shoes\"}"),
+        ("empty-get", reqwest::Method::GET, ""),
+    ] {
         let digest = format!(
             "sha-256=:{}:",
             STANDARD.encode(Sha256::digest(body.as_bytes()))
@@ -74,28 +78,42 @@ async fn actual_http_example_requires_tap_and_rejects_replay() {
             "(\"@method\" \"@authority\" \"@path\" \"@query\" \"content-digest\" \"content-type\");created=1800000000;expires=1800000300;keyid=\"key\";alg=\"ed25519\";nonce=\"{nonce}\";tag=\"agent-browser-auth\""
         );
         let base = format!(
-            "\"@method\": POST\n\"@authority\": seller.example\n\"@path\": /api/catalog\n\"@query\": ?q=red%20shoe\n\"content-digest\": {digest}\n\"content-type\": application/json\n\"@signature-params\": {params}"
+            "\"@method\": {method}\n\"@authority\": seller.example\n\"@path\": /api/catalog\n\"@query\": ?q=red%20shoe\n\"content-digest\": {digest}\n\"content-type\": application/json\n\"@signature-params\": {params}"
         );
         let signature = STANDARD.encode(
             SigningKey::from_bytes(&[17; 32])
                 .sign(base.as_bytes())
                 .to_bytes(),
         );
-        assert_eq!(
-            client
-                .post(&url)
-                .header("signature-input", format!("sig2={params}"))
-                .header("signature", format!("sig2=:{signature}:"))
-                .header("content-type", "application/json")
-                .header("content-digest", digest)
-                .header("content-length", body.len())
-                .body(body)
-                .send()
-                .await
-                .unwrap()
-                .status(),
-            200
-        );
+        let mut builder = client
+            .request(method.clone(), &url)
+            .header("signature-input", format!("sig2={params}"))
+            .header("signature", format!("sig2=:{signature}:"))
+            .header("content-type", "application/json")
+            .header("content-digest", digest);
+        if method == reqwest::Method::POST {
+            builder = builder.header("content-length", body.len()).body(body);
+        }
+        let request = builder.build().unwrap();
+        if method == reqwest::Method::GET {
+            assert!(!request.headers().contains_key("content-length"));
+            assert!(!request.headers().contains_key("transfer-encoding"));
+        }
+        let mut tampered = request.try_clone().unwrap();
+        tampered
+            .headers_mut()
+            .insert("content-digest", "bad".parse().unwrap());
+        assert_eq!(client.execute(tampered).await.unwrap().status(), 401);
+        for expected in [200, 401] {
+            assert_eq!(
+                client
+                    .execute(request.try_clone().unwrap())
+                    .await
+                    .unwrap()
+                    .status(),
+                expected
+            );
+        }
     }
     assert_eq!(
         client

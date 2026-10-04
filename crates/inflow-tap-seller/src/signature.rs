@@ -258,7 +258,12 @@ pub(crate) fn prepare(request: &Request, now: i64) -> Result<Prepared, Error> {
             "@method" => request.method.clone(),
             "@authority" => url[url::Position::BeforeHost..url::Position::AfterPort].to_owned(),
             "@path" => url.path().to_owned(),
-            "@query" => format!("?{}", url.query().unwrap_or_default()),
+            // RFC 9421 signs the original query; URL serialization can percent-encode it.
+            "@query" => request
+                .url
+                .find('?')
+                .map_or("?", |index| &request.url[index..])
+                .to_owned(),
             name => header(request, name)?.to_owned(),
         };
         base.push_str(&format!("{}: {}\n", quoted(component), value));

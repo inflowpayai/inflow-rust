@@ -9,12 +9,15 @@ pub(crate) fn key() -> SigningKey {
     SigningKey::from_bytes(&[17; 32])
 }
 pub(crate) fn signed(body: Option<Vec<u8>>) -> Request {
+    signed_with_query(body, "?q=red%20shoes&kind=a&kind=b")
+}
+fn signed_with_query(body: Option<Vec<u8>>, query: &str) -> Request {
     let mut components = vec!["@method", "@authority", "@path", "@query"];
     let mut values = vec![
         "GET".to_owned(),
         "merchant.example:8443".into(),
         "/catalog%2Fitems".into(),
-        "?q=red%20shoes&kind=a&kind=b".into(),
+        if query.is_empty() { "?" } else { query }.into(),
     ];
     let mut headers = HeaderMap::new();
     if let Some(bytes) = &body {
@@ -54,7 +57,7 @@ pub(crate) fn signed(body: Option<Vec<u8>>) -> Request {
     );
     Request {
         method: "GET".into(),
-        url: "https://merchant.example:8443/catalog%2Fitems?q=red%20shoes&kind=a&kind=b".into(),
+        url: format!("https://merchant.example:8443/catalog%2Fitems{query}"),
         headers,
         body,
     }
@@ -135,6 +138,38 @@ async fn concurrent_claims_are_atomic() {
             .filter_map(|r| r.as_ref().err())
             .all(|e| e.code == "NONCE_REPLAYED")
     );
+}
+#[tokio::test]
+async fn preserves_signed_query_spelling() {
+    for (query, tampered_query) in [
+        ("?q=O'Reilly", "?q=O%27Reilly"),
+        ("?q=O%27Reilly", "?q=O'Reilly"),
+        ("?q=%23%3F&kind=a&kind=b", "?q=%23%3F&kind=b&kind=a"),
+        ("", "?q=changed"),
+        ("?", "?q=changed"),
+    ] {
+        let verifier = verifier();
+        let request = signed_with_query(None, query);
+        let before = request.clone();
+        let mut tampered = request.clone();
+        tampered.url = format!("https://merchant.example:8443/catalog%2Fitems{tampered_query}");
+        assert_eq!(
+            verifier
+                .with_verified(&tampered, |_| async {
+                    panic!("tampered request reached handler")
+                })
+                .await
+                .unwrap_err()
+                .code,
+            "SIGNATURE_INVALID"
+        );
+        assert!(verifier.verify(&request).await.is_ok());
+        assert_eq!(
+            verifier.verify(&request).await.unwrap_err().code,
+            "NONCE_REPLAYED"
+        );
+        assert_eq!(request, before);
+    }
 }
 #[tokio::test]
 async fn tampering_does_not_claim_nonce() {
