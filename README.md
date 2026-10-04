@@ -3,6 +3,9 @@
 Rust crates for InFlow MPP, x402, and TAP integrations. The workspace separates shared
 configuration, protocol integration, and Buyer and Seller roles.
 
+See the shared [SDK compatibility and support policy](https://github.com/inflowpayai/inflow-specs#sdk-compatibility-and-support)
+for supported releases, dependency expectations, and security reporting.
+
 Start with the [runnable Sandbox examples](examples/README.md) for account setup,
 exact commands, approval waiting, receipt inspection, and failure handling.
 
