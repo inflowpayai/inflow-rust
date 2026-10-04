@@ -3,6 +3,11 @@
 All nine public crates use one workspace version. The release workflow is manual
 and runs only from `main`. Merging a pull request does not publish anything.
 
+Before version 1.0, incompatible public API changes require a minor increment;
+compatible fixes use a patch increment. From version 1.0, use semantic versioning.
+See the shared [SDK support policy](https://github.com/inflowpayai/inflow-specs#sdk-compatibility-and-support)
+for maintenance of older releases.
+
 ## Prepare a version
 
 Update the workspace version and every internal dependency requirement together.
