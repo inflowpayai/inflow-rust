@@ -51,7 +51,27 @@ jobs:
       - run: pnpm install --frozen-lockfile
         working-directory: contract
       - name: Install Rust
-        run: rustup toolchain install 1.93.0 --profile minimal --component clippy,rustfmt,llvm-tools-preview
+        id: rust
+        working-directory: sdk
+        run: |
+          rustup toolchain install 1.93.0 --profile minimal --component clippy,rustfmt,llvm-tools-preview
+          echo "version=$(rustc --version)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          key: rust-release-prepare-${{ runner.os }}-${{ runner.arch }}-${{ steps.rust.outputs.version }}-${{ hashFiles('sdk/Cargo.lock', 'sdk/**/Cargo.toml', 'sdk/.cargo/**', 'sdk/Makefile', 'sdk/scripts/verify-consumer.mjs', 'sdk/.github/workflows/release.yml') }}
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            sdk/target/debug/.fingerprint
+            sdk/target/debug/build
+            sdk/target/debug/deps/*.*
+            sdk/target/llvm-cov-target/debug/.fingerprint
+            sdk/target/llvm-cov-target/debug/build
+            sdk/target/llvm-cov-target/debug/deps/*.*
+            sdk/target/consumer-check/debug/.fingerprint
+            sdk/target/consumer-check/debug/build
+            sdk/target/consumer-check/debug/deps/*.*
+            !sdk/target/**/*.profraw
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-deny@0.19.8,cargo-llvm-cov@0.8.7
@@ -64,7 +84,7 @@ jobs:
           node scripts/conformance.mjs --contract-root ../contract --output-dir "$RUNNER_TEMP/reports"
           node scripts/interoperability.mjs ../node-sdk "$RUNNER_TEMP/reports/interoperability.json" ../contract
           node scripts/release.mjs prepare "$RUNNER_TEMP/packages"
-          node scripts/verify-consumer.mjs packages "$RUNNER_TEMP/packages"
+          CARGO_TARGET_DIR="$GITHUB_WORKSPACE/sdk/target/consumer-check" node scripts/verify-consumer.mjs packages "$RUNNER_TEMP/packages"
       - name: Read version
         id: version
         run: echo "version=$(jq -r .version "$RUNNER_TEMP/packages/manifest.json")" >> "$GITHUB_OUTPUT"
@@ -95,7 +115,21 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
-      - run: rustup toolchain install 1.93.0 --profile minimal
+      - name: Install Rust
+        id: rust
+        run: |
+          rustup toolchain install 1.93.0 --profile minimal
+          echo "version=$(rustc --version)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          key: rust-release-publish-${{ runner.os }}-${{ runner.arch }}-${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock', '**/Cargo.toml', '.cargo/**', 'scripts/verify-consumer.mjs', '.github/workflows/release.yml') }}
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/consumer-check/debug/.fingerprint
+            target/consumer-check/debug/build
+            target/consumer-check/debug/deps/*.*
+            !target/**/*.profraw
       - uses: actions/download-artifact@v4
         with:
           name: release-packages
@@ -122,7 +156,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
         run: |
           node scripts/release.mjs publish "$RUNNER_TEMP/packages"
-          node scripts/verify-consumer.mjs registry "$RUNNER_TEMP/packages"
+          CARGO_TARGET_DIR="$GITHUB_WORKSPACE/target/consumer-check" node scripts/verify-consumer.mjs registry "$RUNNER_TEMP/packages"
       - uses: actions/attest-build-provenance@v3
         with:
           subject-path: ${{ runner.temp }}/packages/*.crate
