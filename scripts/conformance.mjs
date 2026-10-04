@@ -104,7 +104,7 @@ async function main() {
   process.once("SIGINT", abort);
   process.once("SIGTERM", abort);
   try {
-    for (const suite of ["runtime", "mpp", "x402"]) {
+    for (const suite of ["runtime", "mpp", "x402", "tap"]) {
       if (controller.signal.aborted) throw new Error("Conformance interrupted");
       const fixtures = await import(
         pathToFileURL(join(contractRoot, `fixtures/${suite}.mjs`))
@@ -121,15 +121,19 @@ async function main() {
                   ]),
                 ),
               )
-            : fixtures.x402CasesForOwnedPayments();
+            : suite === "tap"
+              ? fixtures.tapCases
+              : fixtures.x402CasesForOwnedPayments();
       const capabilities = {
         suites:
           suite === "runtime"
             ? ["runtime"]
-            : [`${suite}-core`, `${suite}-buyer`, `${suite}-seller`],
+            : suite === "tap"
+              ? ["tap-seller"]
+              : [`${suite}-core`, `${suite}-buyer`, `${suite}-seller`],
         supported_features: [],
         unsupported_features:
-          suite === "runtime"
+          suite === "runtime" || suite === "tap"
             ? []
             : suite === "mpp"
               ? [

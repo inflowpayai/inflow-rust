@@ -164,6 +164,42 @@ Use HTTPS when adapting these programs to a remote Service. The example package
 uses local path dependencies. In another application, depend
 on the relevant published SDK crates, not `inflow-examples`.
 
+## TAP Seller
+
+This independent example verifies agent-signed requests without payments or an
+InFlow API key. Run it from the repository root:
+
+```sh
+PUBLIC_ORIGIN=http://127.0.0.1:3002 cargo run --locked -p inflow-examples --bin tap-seller
+```
+
+The server binds to `127.0.0.1:3002` and accepts GET/POST at `/api/catalog`.
+An unsigned request is deliberately rejected:
+
+```sh
+curl -i http://127.0.0.1:3002/api/catalog
+```
+
+Expect HTTP 401. To receive the catalog, a TAP agent must sign the request for the
+configured `PUBLIC_ORIGIN` using a private key whose public key is available from
+the configured trusted resolver. The example uses Visa's public key endpoint;
+an arbitrary locally generated key will not pass. The automated HTTP example test
+supplies a synthetic trusted resolver and signs real requests; it tests successful
+access and nonce replay without contacting Visa.
+
+For deployment behind a proxy, set `PUBLIC_ORIGIN` to the externally signed
+origin. The route ignores forwarding headers, preserves the encoded path and
+query, and verifies body bytes before application code runs. POST bodies require
+signed content-type and SHA-256 content-digest fields; bodies are limited to 1 MiB.
+One application-lifetime verifier retains key cache and replay state. Replaying a
+signed request returns 401. Stop with Ctrl+C.
+
+TAP recognition is not buyer authentication or payment authorization. The sample
+catalog response illustrates the protected callback; add account and payment
+checks separately when your application requires them. See the
+[crate guide](../crates/inflow-tap-seller/README.md) for custom key resolvers,
+distributed replay stores, and cancellation behavior.
+
 ## Automated verification
 
 `make verify` compiles and checks these programs. Tests exercise the public SDKs

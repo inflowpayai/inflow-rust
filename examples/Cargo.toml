@@ -9,6 +9,7 @@ publish = false
 [dependencies]
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
 http.workspace = true
+inflow-tap-seller = { path = "../crates/inflow-tap-seller", version = "0.1.0" }
 inflow-core = { path = "../crates/inflow-core", version = "0.1.0" }
 inflow-mpp = { path = "../crates/inflow-mpp", version = "0.1.0" }
 inflow-mpp-buyer = { path = "../crates/inflow-mpp-buyer", version = "0.1.0" }
@@ -24,6 +25,9 @@ tokio-util.workspace = true
 url.workspace = true
 
 [dev-dependencies]
+base64.workspace = true
+ed25519-dalek.workspace = true
+sha2.workspace = true
 tower = { version = "0.5", features = ["util"] }
 
 [lints]

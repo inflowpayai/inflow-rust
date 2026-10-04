@@ -1,6 +1,6 @@
 # InFlow Rust SDK
 
-Rust crates for InFlow MPP and x402 integrations. The workspace separates shared
+Rust crates for InFlow MPP, x402, and TAP integrations. The workspace separates shared
 configuration, protocol integration, and Buyer and Seller roles.
 
 Start with the [runnable Sandbox examples](examples/README.md) for account setup,
@@ -11,6 +11,7 @@ exact commands, approval waiting, receipt inspection, and failure handling.
 | Crate                                                       | Responsibility                                                                                   |
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | [`inflow-core`](crates/inflow-core/README.md)               | Shared InFlow environment and client configuration.                                              |
+| [`inflow-tap-seller`](crates/inflow-tap-seller/README.md)   | Independent TAP request verification, trusted-key caching, and replay protection.                |
 | [`inflow-mpp`](crates/inflow-mpp/README.md)                 | MPP codecs, method-field validation, and shared InFlow protocol integration.                     |
 | [`inflow-mpp-buyer`](crates/inflow-mpp-buyer/README.md)     | Payment creation, approval polling, subscription authorization, and cancellation for MPP Buyers. |
 | [`inflow-mpp-seller`](crates/inflow-mpp-seller/README.md)   | Signed offers, credential validation, and settlement for InFlow and Tempo charges.               |
@@ -21,11 +22,16 @@ exact commands, approval waiting, receipt inspection, and failure handling.
 
 ## Environments
 
-Seller integrations require an InFlow **Seller** account and its dashboard API key.
+Payment Seller integrations require an InFlow **Seller** account and its dashboard API key.
 Buyer integrations accept accounts permitted to buy; Sellers can also act as Buyers.
 Register in [Sandbox](https://sandbox.inflowpay.ai) for testing or
 [production](https://app.inflowpay.ai) for live payments. Credentials are separate
 between environments. API keys authorize requests; they do not fund wallets.
+
+TAP verification requires no InFlow account or credentials. Add only
+`inflow-tap-seller` when verifying agent signatures without payments; it does not
+depend on the MPP or x402 crates. See its [integration guide](crates/inflow-tap-seller/README.md)
+and the [TAP example](examples/README.md#tap-seller).
 
 `inflow_core::Environment` selects the InFlow API environment:
 

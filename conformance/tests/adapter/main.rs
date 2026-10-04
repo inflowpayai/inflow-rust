@@ -1,5 +1,6 @@
 mod mpp;
 mod runtime;
+mod tap;
 mod transport;
 mod x402;
 
@@ -37,6 +38,8 @@ async fn respond(request: Value) -> Value {
             x402::execute(op, input).await
         } else if op.starts_with("runtime.") {
             runtime::execute(op, input).await
+        } else if op == "tap.seller.verify" {
+            tap::execute(input).await
         } else {
             Err(bad("unknown operation"))
         };

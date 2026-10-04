@@ -3129,11 +3129,14 @@ name = "inflow-conformance"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64 0.22.1",
+ "futures-util",
  "http 1.5.0",
  "inflow-core",
  "inflow-mpp",
  "inflow-mpp-buyer",
  "inflow-mpp-seller",
+ "inflow-tap-seller",
  "inflow-x402",
  "inflow-x402-axum",
  "inflow-x402-buyer",
@@ -3165,17 +3168,21 @@ name = "inflow-examples"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64 0.22.1",
+ "ed25519-dalek",
  "http 1.5.0",
  "inflow-core",
  "inflow-mpp",
  "inflow-mpp-buyer",
  "inflow-mpp-seller",
+ "inflow-tap-seller",
  "inflow-x402",
  "inflow-x402-axum",
  "inflow-x402-buyer",
  "inflow-x402-seller",
  "reqwest 0.13.5",
  "serde_json",
+ "sha2 0.11.0",
  "tokio",
  "tokio-util",
  "tower",
@@ -3225,6 +3232,21 @@ dependencies = [
  "tokio",
  "tokio-util",
  "uuid",
+]
+
+[[package]]
+name = "inflow-tap-seller"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "ed25519-dalek",
+ "futures-util",
+ "http 1.5.0",
+ "reqwest 0.13.5",
+ "serde_json",
+ "sha2 0.11.0",
+ "tokio",
+ "url",
 ]
 
 [[package]]

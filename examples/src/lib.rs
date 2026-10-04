@@ -1,5 +1,6 @@
 pub mod mpp_buyer;
 pub mod mpp_seller;
+pub mod tap_seller;
 pub mod x402_buyer;
 pub mod x402_seller;
 
