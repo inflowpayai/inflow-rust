@@ -1,6 +1,6 @@
 # Publishing InFlow Rust
 
-All eight public crates use one workspace version. The release workflow is manual
+All nine public crates use one workspace version. The release workflow is manual
 and runs only from `main`. Merging a pull request does not publish anything.
 
 ## Prepare a version
@@ -14,7 +14,7 @@ Open [Release](https://github.com/inflowpayai/inflow-rust/actions/workflows/rele
 select **Run workflow**, select **main**, and leave **publish** unchecked. This runs
 the full repository gates, pinned shared conformance, Node interoperability, and
 packaged-consumer checks. It uploads `release-packages` and `release-reports`.
-The package artifact includes the eight `.crate` archives and `manifest.json`,
+The package artifact includes the nine `.crate` archives and `manifest.json`,
 which records the commit, version, and SHA-256 checksum of each archive.
 
 ## First publication
@@ -23,10 +23,15 @@ Crates.io requires an API token to publish each crate name for the first time.
 Trusted Publishing can be configured only after the crates exist. Perform these
 steps only after the release has been approved and preparation is green.
 
+This also applies when adding a crate to an already-published workspace. Each
+crate, including `inflow-tap-seller`, needs its own first publication and Trusted
+Publisher configuration. An existing publisher for `inflow-core` does not cover
+the other crate names.
+
 1. Sign in at [crates.io](https://crates.io) with the GitHub account that will own
    these crates, and verify its email address in [account settings](https://crates.io/settings/profile).
 2. Create a short-lived token at [API tokens](https://crates.io/settings/tokens).
-   Grant publication access for the eight crate names listed below. Do not put
+   Grant publication access for the nine crate names listed below. Do not put
    the token into a command argument, source file, chat message, or GitHub secret.
 3. Check out the prepared `main` commit with a clean tree. Download and extract
    `release-packages` into a fresh directory. The scripts require that exact commit.
@@ -58,6 +63,7 @@ For each crate, open its **Settings → Trusted Publishing**, select GitHub, and
 | Environment       | `release`       |
 
 - [inflow-core](https://crates.io/crates/inflow-core/settings)
+- [inflow-tap-seller](https://crates.io/crates/inflow-tap-seller/settings)
 - [inflow-mpp](https://crates.io/crates/inflow-mpp/settings)
 - [inflow-mpp-buyer](https://crates.io/crates/inflow-mpp-buyer/settings)
 - [inflow-mpp-seller](https://crates.io/crates/inflow-mpp-seller/settings)
@@ -82,6 +88,6 @@ workflow fails after publication, rerun against the same commit; do not bump the
 version merely to recover a missing GitHub release. An already completed GitHub
 release is not overwritten.
 
-Packaged-consumer checks extract the prepared archives and patch only the eight
+Packaged-consumer checks extract the prepared archives and patch only the nine
 unpublished SDK crates into a separate Cargo project. Registry-consumer checks use
 exact crates.io versions without those patches. Neither mode sends payments.
