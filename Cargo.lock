@@ -3126,7 +3126,7 @@ dependencies = [
 
 [[package]]
 name = "inflow-conformance"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -3152,7 +3152,7 @@ dependencies = [
 
 [[package]]
 name = "inflow-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "fastrand",
  "futures-util",
@@ -3165,7 +3165,7 @@ dependencies = [
 
 [[package]]
 name = "inflow-examples"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -3191,7 +3191,7 @@ dependencies = [
 
 [[package]]
 name = "inflow-mpp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "http 1.5.0",
  "inflow-core",
@@ -3206,7 +3206,7 @@ dependencies = [
 
 [[package]]
 name = "inflow-mpp-buyer"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "http 1.5.0",
  "inflow-core",
@@ -3219,7 +3219,7 @@ dependencies = [
 
 [[package]]
 name = "inflow-mpp-seller"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "http 1.5.0",
  "inflow-core",
@@ -3236,7 +3236,7 @@ dependencies = [
 
 [[package]]
 name = "inflow-tap-seller"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
@@ -3251,7 +3251,7 @@ dependencies = [
 
 [[package]]
 name = "inflow-x402"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "http 1.5.0",
@@ -3267,7 +3267,7 @@ dependencies = [
 
 [[package]]
 name = "inflow-x402-axum"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "http 1.5.0",
@@ -3285,7 +3285,7 @@ dependencies = [
 
 [[package]]
 name = "inflow-x402-buyer"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "alloy-eip7702",
  "alloy-primitives",
@@ -3307,7 +3307,7 @@ dependencies = [
 
 [[package]]
 name = "inflow-x402-seller"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "http 1.5.0",
  "inflow-core",

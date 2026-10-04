@@ -114,7 +114,10 @@ async fn request_headers_body_and_environment_are_isolated() {
     assert!(requests[0].headers["x-api-key"].is_sensitive());
     assert!(!requests[0].headers.contains_key("authorization"));
     assert_eq!(requests[0].headers["content-type"], "application/json");
-    assert_eq!(requests[0].headers["user-agent"], "inflow-rust/0.1.0");
+    assert_eq!(
+        requests[0].headers["user-agent"],
+        concat!("inflow-rust/", env!("CARGO_PKG_VERSION"))
+    );
     assert_eq!(requests[0].headers["x-custom"], "value");
     assert_eq!(
         serde_json::from_slice::<Value>(&requests[0].body).unwrap(),
