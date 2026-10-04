@@ -39,7 +39,8 @@ async fn handle(verifier: &Verifier, origin: &str, request: Request<Body>) -> Re
         parts.uri.path_and_query().map_or("/", |v| v.as_str())
     );
     let supplied = parts.headers.contains_key("content-length")
-        || parts.headers.contains_key("transfer-encoding");
+        || parts.headers.contains_key("transfer-encoding")
+        || parts.headers.contains_key("content-digest");
     let body = match to_bytes(body, 1024 * 1024).await {
         Ok(body) => body,
         Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
