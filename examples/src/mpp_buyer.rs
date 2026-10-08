@@ -1,11 +1,21 @@
 use crate::{Result, finish, http_client, send};
-use inflow_mpp_buyer::{Buyer, ClientOptions, PaymentOptions, WaitOptions};
+use inflow_mpp_buyer::{Buyer, CardPaymentOptions, ClientOptions, PaymentOptions, WaitOptions};
 use std::io::Write;
 use tokio_util::sync::CancellationToken;
 
 pub async fn run(
     options: ClientOptions,
     url: url::Url,
+    token: &CancellationToken,
+    out: &mut dyn Write,
+) -> Result<()> {
+    run_with_card(options, url, None, token, out).await
+}
+
+pub async fn run_with_card(
+    options: ClientOptions,
+    url: url::Url,
+    card: Option<CardPaymentOptions>,
     token: &CancellationToken,
     out: &mut dyn Write,
 ) -> Result<()> {
@@ -25,20 +35,25 @@ pub async fn run(
     let challenge = challenges
         .iter()
         .find(|challenge| {
-            challenge.method.as_str() == "inflow" && challenge.intent.as_str() == "charge"
+            challenge.method.as_str() == if card.is_some() { "card" } else { "inflow" }
+                && challenge.intent.as_str() == "charge"
         })
-        .ok_or("No InFlow charge offer; no payment was created.")?;
+        .ok_or("No matching charge offer; no payment was created.")?;
     writeln!(
         out,
-        "Selected InFlow charge: {}",
+        "Selected charge: {}",
         inflow_mpp::decode(challenge.request.raw())?
     )?;
     drop(response);
 
     let buyer = Buyer::new(options)?;
-    let payment = buyer
-        .prepare(challenge, PaymentOptions::default(), token)
-        .await?;
+    let payment = if let Some(options) = card {
+        buyer.prepare_card(challenge, options, token).await?
+    } else {
+        buyer
+            .prepare(challenge, PaymentOptions::default(), token)
+            .await?
+    };
     writeln!(
         out,
         "Approval: {}. Approve in Sandbox if requested; Ctrl-C cancels waiting.",

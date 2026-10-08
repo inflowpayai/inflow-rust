@@ -7,6 +7,8 @@ use serde_json::Value;
 pub fn validate_request(method: &str, intent: &str, request: &Value) -> Result<(), Error> {
     let amount = nonempty(&request["amount"], "amount")?;
     match (method, intent) {
+        ("card", "charge") => return crate::card::request(request),
+        ("stripe", "charge") => return crate::stripe::request(request),
         ("inflow", "charge" | "subscription") => {
             check(decimal(amount), "decimal amount")?;
             nonempty(&request["currency"], "currency")?;
@@ -97,6 +99,13 @@ pub fn validate_request(method: &str, intent: &str, request: &Value) -> Result<(
 pub fn validate_payload(method: &str, payload: &Value) -> Result<(), Error> {
     check(payload.is_object(), "payload")?;
     match method {
+        "card" => return crate::card::payload(payload),
+        "stripe" => {
+            nonempty(&payload["spt"], "Stripe token")?;
+            if let Some(reference) = payload.get("externalId") {
+                check(reference.is_string(), "Stripe externalId")?;
+            }
+        }
         "inflow" => {}
         "tempo" => {
             optional(payload, "transactionId", |_| true)?;

@@ -2,10 +2,47 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { buildAdapter, checkContract, metadata } from "./conformance.mjs";
+import {
+  buildAdapter,
+  checkContract,
+  metadata,
+  signedSellerCases,
+} from "./conformance.mjs";
 import { runtimeCases } from "../conformance/runtime-cases.mjs";
 
 const binary = buildAdapter();
+test("Seller signatures update fixture identities without erasing negative controls", () => {
+  const challenge = { id: "synthetic", method: "card", request: "request" };
+  const index = {
+    cases: [
+      {
+        operation: "mpp.seller.verify",
+        input: { credential: { challenge } },
+        expect: {
+          result: {
+            challenge,
+            receipt: { challengeId: "wrong" },
+            reference: "synthetic",
+          },
+        },
+      },
+      { operation: "mpp.buyer.fulfil", input: { credential: { challenge } } },
+    ],
+  };
+  const result = signedSellerCases(index, () => ({
+    id: "signed",
+    expires: "2099-01-01T00:00:00Z",
+  }));
+  assert.equal(result.cases[0].input.credential.challenge.id, "signed");
+  assert.equal(result.cases[0].expect.result.receipt.challengeId, "wrong");
+  assert.equal(result.cases[0].expect.result.reference, "synthetic");
+  assert.equal(
+    result.cases[0].input.credential.challenge.expires,
+    "2099-01-01T00:00:00Z",
+  );
+  assert.equal(result.cases[1].input.credential.challenge.id, "synthetic");
+  assert.equal(index.cases[0].input.credential.challenge.id, "synthetic");
+});
 const root = fileURLToPath(new URL("..", import.meta.url));
 const request = (operation, input, adapter_version = "1") => ({
   adapter_version,

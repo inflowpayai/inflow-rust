@@ -14,6 +14,19 @@ pub struct PaymentOptions {
     pub subscription_id: Option<String>,
 }
 
+#[derive(Clone)]
+pub struct Merchant {
+    pub name: String,
+    pub url: String,
+    pub country_code: String,
+}
+
+#[derive(Clone)]
+pub struct CardPaymentOptions {
+    pub merchant: Merchant,
+    pub instrument_id: Option<String>,
+}
+
 #[derive(Clone, Copy)]
 pub struct WaitOptions {
     /// Used only when the platform supplies no retryAfterSeconds. Zero permits immediate polling.
@@ -35,6 +48,67 @@ impl Default for WaitOptions {
 pub struct Buyer(MppClient);
 
 impl Buyer {
+    /// Uses a linked Visa card; InFlow checks ownership and the available allowance.
+    pub async fn prepare_card(
+        &self,
+        challenge: &PaymentChallenge,
+        options: CardPaymentOptions,
+        cancellation: &CancellationToken,
+    ) -> Result<Payment, Error> {
+        if challenge.method.as_str() != "card" || challenge.intent.as_str() != "charge" {
+            return Err(malformed("CARD charge challenge required"));
+        }
+        render_challenge(challenge)?;
+        validate_request("card", "charge", &decode(challenge.request.raw())?)?;
+        let merchant = &options.merchant;
+        if merchant.name.trim().is_empty()
+            || merchant.name.encode_utf16().count() > 200
+            || merchant.url.encode_utf16().count() > 2048
+            || !url::Url::parse(&merchant.url)
+                .is_ok_and(|u| matches!(u.scheme(), "http" | "https") && u.host_str().is_some())
+            || merchant.country_code.len() != 2
+            || !merchant
+                .country_code
+                .bytes()
+                .all(|b| b.is_ascii_alphabetic())
+            || options.instrument_id.as_ref().is_some_and(|id| !guid(id))
+        {
+            return Err(Error::new(
+                "INVALID_MPP_DATA",
+                "invalid CARD payment options",
+            ));
+        }
+        if challenge.is_expired() {
+            return Err(expired());
+        }
+        let mut body_options = json!({"merchant":{"name":merchant.name, "url":merchant.url, "countryCode":merchant.country_code}});
+        if let Some(id) = options.instrument_id {
+            body_options["instrumentId"] = json!(id);
+        }
+        let cancellation = cancellation.child_token();
+        let response = self
+            .0
+            .create(
+                json!({"challenge":challenge,"options":body_options}),
+                &cancellation,
+            )
+            .await
+            .map_err(payment_error)?;
+        let mut payment = self.prepared(response, cancellation)?;
+        payment.card_challenge = Some(inflow_mpp::encode(&json!(challenge))?);
+        Ok(payment)
+    }
+
+    /// Reads settlement and Buyer actions without changing or cancelling the payment.
+    pub async fn get_payment_status(
+        &self,
+        id: &str,
+        options: crate::PaymentStatusOptions,
+        cancellation: &CancellationToken,
+    ) -> Result<Value, Error> {
+        self.0.payment_status(id, options, cancellation).await
+    }
+
     pub fn new(options: ClientOptions) -> Result<Self, Error> {
         Ok(Self(MppClient::new(options)?))
     }
@@ -46,6 +120,15 @@ impl Buyer {
         options: PaymentOptions,
         cancellation: &CancellationToken,
     ) -> Result<Payment, Error> {
+        if !matches!(
+            (challenge.method.as_str(), challenge.intent.as_str()),
+            ("inflow", "charge" | "subscription") | ("tempo", "charge")
+        ) {
+            return Err(Error::new(
+                "UNSUPPORTED_MPP_METHOD",
+                "use prepare_card for CARD; Stripe token creation is not supported",
+            ));
+        }
         render_challenge(challenge)?;
         validate_request(
             challenge.method.as_str(),
@@ -98,6 +181,10 @@ impl Buyer {
                 .await
                 .map_err(payment_error)?
         };
+        self.prepared(response, cancellation)
+    }
+
+    fn prepared(&self, response: Value, cancellation: CancellationToken) -> Result<Payment, Error> {
         let received = Instant::now();
         let cleanup = if response["state"] == "pending" {
             optional_id(&response, "approvalId")?
@@ -107,6 +194,7 @@ impl Buyer {
             None
         };
         Ok(Payment {
+            card_challenge: None,
             client: self.0.clone(),
             response,
             received,
@@ -124,6 +212,7 @@ impl Buyer {
 /// A prepared operation. Dropping a pending handle schedules bounded approval cleanup.
 /// It contains payment credentials and deliberately does not implement Debug or Clone.
 pub struct Payment {
+    card_challenge: Option<String>,
     client: MppClient,
     response: Value,
     received: Instant,
@@ -201,8 +290,21 @@ impl Payment {
                     let encoded = self.response["credential"]
                         .as_str()
                         .ok_or_else(|| malformed("ready response has no credential"))?;
-                    return decode_credential(encoded)
-                        .map_err(|_| malformed("ready response has an invalid credential"));
+                    let credential = decode_credential(encoded)
+                        .map_err(|_| malformed("ready response has an invalid credential"))?;
+                    if let Some(expected) = &self.card_challenge {
+                        if &inflow_mpp::encode(&json!(credential.challenge))? != expected {
+                            return Err(malformed(
+                                "CARD credential does not match the requested challenge",
+                            ));
+                        }
+                        inflow_mpp::validate_payload(
+                            "card",
+                            &Value::Object(credential.payload.clone()),
+                        )
+                        .map_err(|_| malformed("invalid CARD credential payload"))?;
+                    }
+                    return Ok(credential);
                 }
                 Some("failed") => return Err(failed(&self.response)),
                 Some("expired") => return Err(expired()),

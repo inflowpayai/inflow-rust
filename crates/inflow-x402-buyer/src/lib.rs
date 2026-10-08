@@ -14,7 +14,7 @@ pub use x402_chain_solana as solana;
 
 pub use buyer::{Buyer, BuyerOptions};
 pub use http::{HttpBuyer, PaymentExtension};
-pub use inflow_core::{Authentication, ClientOptions, Environment, Error};
+pub use inflow_core::{Authentication, ClientOptions, Environment, Error, PaymentStatusOptions};
 pub use payment::{EncodedPayment, Payment, SignOptions, WaitOptions};
 pub use tokio_util::sync::CancellationToken;
 pub use x402_types::proto::{OriginalJson, v2::PaymentRequired};

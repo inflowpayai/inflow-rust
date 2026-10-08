@@ -13,6 +13,13 @@ struct Local {
     supported: Option<Value>,
 }
 
+struct Token(String);
+impl inflow_core::AccessTokenProvider for Token {
+    fn access_token(&self) -> Pin<Box<dyn Future<Output = Result<String, Error>> + Send + '_>> {
+        Box::pin(async { Ok(self.0.clone()) })
+    }
+}
+
 pub fn options(input: &Value) -> Result<ClientOptions, Error> {
     let fixtures = input.get("config").is_some();
     let base = if fixtures {
@@ -36,7 +43,9 @@ pub fn options(input: &Value) -> Result<ClientOptions, Error> {
         authentication: input["api_key"]
             .as_str()
             .map(|v| Authentication::ApiKey(v.into()))
-            .unwrap_or(if fixtures {
+            .unwrap_or(if let Some(token) = input["access_token"].as_str() {
+                Authentication::Bearer(Arc::new(Token(token.into())))
+            } else if fixtures {
                 Authentication::ApiKey("test-only-seller-key".into())
             } else {
                 Authentication::Anonymous

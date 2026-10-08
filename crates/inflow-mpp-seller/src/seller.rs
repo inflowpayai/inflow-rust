@@ -15,12 +15,16 @@ use time::{Duration, OffsetDateTime, format_description::well_known::Rfc3339};
 pub enum Method {
     Inflow,
     Tempo,
+    Stripe,
+    Card,
 }
 impl Method {
-    fn name(self) -> &'static str {
+    pub(crate) fn name(self) -> &'static str {
         match self {
             Self::Inflow => "inflow",
             Self::Tempo => "tempo",
+            Self::Stripe => "stripe",
+            Self::Card => "card",
         }
     }
 }
@@ -78,7 +82,7 @@ impl Seller {
         })))
     }
 
-    /// Creates immutable route payment terms. Amounts are decimal strings for InFlow and base-unit strings for Tempo.
+    /// Creates route terms. InFlow uses decimal currency, Stripe/CARD use USD dollars, Tempo uses base units.
     pub fn offer(
         &self,
         method: Method,
@@ -89,6 +93,9 @@ impl Seller {
             return Err(invalid("request must be an object"));
         }
         match method {
+            Method::Stripe | Method::Card => {
+                request = crate::card::prepare(method, &self.0.config, request)?;
+            }
             Method::Inflow => {
                 validate_request(method.name(), "charge", &request)?;
                 request["recipient"] = self.0.config["sellerId"].clone();
@@ -257,7 +264,25 @@ impl Offer {
                 "credential does not match this offer",
             ));
         }
-        let wire = serde_json::to_value(credential).map_err(json_error)?;
+        if matches!(self.method, Method::Stripe | Method::Card) {
+            inflow_mpp::validate_payload(
+                self.method.name(),
+                &Value::Object(credential.payload.clone()),
+            )?;
+        }
+        if self.method == Method::Stripe
+            && request.get("externalId").is_some()
+            && request.get("externalId") != credential.payload.get("externalId")
+        {
+            return Err(Error::new(
+                "MPP_CREDENTIAL_MISMATCH",
+                "credential externalId does not match the challenge",
+            ));
+        }
+        let mut wire = serde_json::to_value(credential).map_err(json_error)?;
+        if matches!(self.method, Method::Stripe | Method::Card) && credential.source.is_none() {
+            wire["source"] = json!("");
+        }
         // mpp0.14 ChallengeEcho omits description (upstream PR490). Preserve the original per request;
         // only the verification projection enters upstream, never the platform-bound credential.
         let projected = PaymentCredential {
@@ -375,11 +400,12 @@ impl ChargeMethod for Bridge {
         }
         .map_err(|e| self.retain(e))?;
         let challenge = &self.wire["challenge"];
-        if challenge["method"] == "inflow"
-            && request
-                .method_details
-                .as_ref()
-                .is_some_and(|details| details["rail"] == "instrument")
+        if (matches!(self.method, Method::Stripe | Method::Card)
+            || (challenge["method"] == "inflow"
+                && request
+                    .method_details
+                    .as_ref()
+                    .is_some_and(|details| details["rail"] == "instrument")))
             && (result["receipt"]["method"] != challenge["method"]
                 || result["receipt"]["challengeId"] != challenge["id"])
         {
@@ -466,6 +492,11 @@ fn binding(method: Method, request: &Value) -> Value {
     // Upstream expected-request checks omit method-specific fields (issue555).
     // Match Node's stableBinding so valid credentials cannot change rail or Tempo transfer terms.
     match method {
+        Method::Stripe | Method::Card => json!({
+            "amount":request["amount"], "currency":request["currency"],
+            "recipient":request["recipient"], "externalId":request["externalId"],
+            "methodDetails":request["methodDetails"]
+        }),
         Method::Inflow => {
             json!({
                 "amount": request["amount"],

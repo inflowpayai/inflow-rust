@@ -81,6 +81,51 @@ returns HTTP 502 without a fresh challenge or paid resource. Malformed Payment
 authorization returns HTTP 400. Check transactions before retrying an uncertain
 settlement: an HTTP failure does not prove that no payment occurred.
 
+## CARD and Stripe
+
+The same MPP Seller can advertise one of three USD payment methods at **1.25 USD**:
+
+```sh
+export MPP_METHOD=card       # Or stripe, or instrument
+cargo run --locked -p inflow-examples --bin mpp-seller
+```
+
+Keep the Seller key and signing secret from the setup above. CARD and Stripe must
+be enabled in that Seller's authenticated configuration; startup fails if they are
+unavailable. `instrument` uses an InFlow linked card, while `card` carries an
+encrypted Visa credential and `stripe` carries an external Shared Payment Token.
+
+For CARD, use the Buyer key in a separate terminal. The buyer needs a linked Visa
+card with an allowance that covers the purchase:
+
+```sh
+export MPP_METHOD=card
+export MERCHANT_NAME='Example shop'
+export MERCHANT_URL='https://shop.example'
+export MERCHANT_COUNTRY=US
+# Optionally export INSTRUMENT_ID with your linked card UUID; otherwise the primary card is used.
+cargo run --locked -p inflow-examples --bin mpp-buyer
+```
+
+Merchant fields describe the Service you are paying; replace them with its actual
+values. For `instrument`, use the regular MPP Buyer with `MPP_METHOD=instrument`.
+For `stripe`, use an external Stripe-capable payer: this SDK does not create Stripe
+tokens. The Seller handler is the same signed, validate-then-settle route for all
+three methods. These examples can make payments; they are not offline simulations.
+
+To inspect an existing MPP or x402 payment without submitting another purchase:
+
+```sh
+export INFLOW_API_KEY='your-sandbox-buyer-key'
+export TRANSACTION_ID='the-original-transaction-uuid'
+cargo run --locked -p inflow-examples --bin payment-status
+```
+
+A pending result can include an authenticated dashboard action. Complete that
+action as the buyer and explicitly rerun the status read. Do not rerun the purchase
+merely because a prior response was lost. Status reads do not confirm, cancel or
+replace payments.
+
 ## x402
 
 In the Seller terminal:

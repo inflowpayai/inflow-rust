@@ -16,6 +16,36 @@ pub struct HttpClient {
 }
 
 impl HttpClient {
+    pub async fn payment_status(
+        &self,
+        id: &str,
+        options: crate::PaymentStatusOptions,
+        cancellation: &CancellationToken,
+    ) -> Result<Value, Error> {
+        if id.is_empty() || matches!(id, "." | "..") {
+            return Err(Error::invalid("transaction identifier"));
+        }
+        let id: String = id
+            .bytes()
+            .map(|b| {
+                if b.is_ascii_alphanumeric() || b"-._~".contains(&b) {
+                    (b as char).to_string()
+                } else {
+                    format!("%{b:02X}")
+                }
+            })
+            .collect();
+        self.request(
+            Method::GET,
+            &format!("/v1/transactions/{id}"),
+            None,
+            HeaderMap::new(),
+            options.retries,
+            cancellation,
+        )
+        .await
+    }
+
     pub fn new(options: ClientOptions) -> Result<Self, Error> {
         if options.timeout.is_zero() {
             return Err(Error::invalid("timeout"));

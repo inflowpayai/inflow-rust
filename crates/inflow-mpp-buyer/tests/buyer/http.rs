@@ -16,6 +16,45 @@ struct Loopback {
 }
 
 #[tokio::test]
+async fn status_redirect_and_inflight_cancellation_never_visit_an_action_or_cancel_payment() {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        let destination=TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener=TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base=format!("http://{}",listener.local_addr().unwrap());
+        let target=format!("http://{}/secret",destination.local_addr().unwrap());
+        let entered=Arc::new(Notify::new());
+        let notify=entered.clone();
+        let server=tokio::spawn(async move {
+            for step in 0..2 {
+                let (mut stream,_)=listener.accept().await.unwrap();
+                let mut bytes=Vec::new();
+                while !bytes.ends_with(b"\r\n\r\n") {bytes.push(stream.read_u8().await.unwrap());}
+                let request=String::from_utf8(bytes).unwrap();
+                assert!(request.starts_with("GET /v1/transactions/original "));
+                assert!(request.contains("x-api-key: platform-key"));
+                if step==0 {stream.write_all(format!("HTTP/1.1 307 Temporary Redirect\r\nLocation: {target}\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{{}}").as_bytes()).await.unwrap();}
+                else {notify.notify_one();let mut buffer=[0];assert_eq!(stream.read(&mut buffer).await.unwrap(),0);}
+            }
+            assert!(tokio::time::timeout(Duration::from_millis(50),listener.accept()).await.is_err());
+        });
+        let buyer=Buyer::new(ClientOptions {
+            authentication:Authentication::ApiKey("platform-key".into()),
+            transport:Some(Arc::new(Loopback {base,http:reqwest::Client::builder().redirect(reqwest::redirect::Policy::none()).retry(reqwest::retry::never()).build().unwrap()})),
+            ..Default::default()
+        }).unwrap();
+        let token=CancellationToken::new();
+        assert_eq!(buyer.get_payment_status("original",PaymentStatusOptions::default(),&token).await.unwrap_err().http_status,307);
+        let cancel=token.clone();
+        let reading=tokio::spawn(async move {buyer.get_payment_status("original",PaymentStatusOptions::default(),&token).await});
+        entered.notified().await;
+        cancel.cancel();
+        assert_eq!(reading.await.unwrap().unwrap_err().code,"CANCELLED");
+        server.await.unwrap();
+        assert!(tokio::time::timeout(Duration::from_millis(50),destination.accept()).await.is_err());
+    }).await.unwrap();
+}
+
+#[tokio::test]
 async fn explicit_http_flow_preserves_challenge_and_separates_platform_credentials() {
     tokio::time::timeout(Duration::from_secs(10), explicit_http_flow())
         .await

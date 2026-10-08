@@ -67,6 +67,201 @@ fn client(replies: Vec<Reply>) -> (Buyer, Arc<Script>) {
 fn reply(value: Value) -> Reply {
     Reply::Json(200, value)
 }
+
+#[tokio::test(start_paused = true)]
+async fn settlement_reads_preserve_snapshots_and_never_create_or_cancel() {
+    let action = json!({"transactionId":"tx", "status":"PENDING", "nextAction":{"type":"authenticate_card","url":"https://bank.example/verify"}});
+    let (buyer, script) = client(vec![
+        reply(action.clone()),
+        reply(json!({"transactionId":"tx","status":"SETTLED"})),
+        Reply::Json(503, json!({"code":"unavailable"})),
+        Reply::Json(503, json!({})),
+        reply(json!({"status":"GENERAL_ERROR"})),
+    ]);
+    let token = CancellationToken::new();
+    assert_eq!(
+        buyer
+            .get_payment_status("a/b?q#f", PaymentStatusOptions::default(), &token)
+            .await
+            .unwrap(),
+        action
+    );
+    assert_eq!(
+        buyer
+            .get_payment_status("tx", PaymentStatusOptions::default(), &token)
+            .await
+            .unwrap()["status"],
+        "SETTLED"
+    );
+    assert_eq!(
+        buyer
+            .get_payment_status("tx", PaymentStatusOptions::default(), &token)
+            .await
+            .unwrap_err()
+            .http_status,
+        503
+    );
+    assert_eq!(
+        buyer
+            .get_payment_status("tx", PaymentStatusOptions { retries: 1 }, &token)
+            .await
+            .unwrap()["status"],
+        "GENERAL_ERROR"
+    );
+    for id in ["", ".", ".."] {
+        assert!(
+            buyer
+                .get_payment_status(id, PaymentStatusOptions::default(), &token)
+                .await
+                .is_err()
+        );
+    }
+    token.cancel();
+    assert_eq!(
+        buyer
+            .get_payment_status("tx", PaymentStatusOptions::default(), &token)
+            .await
+            .unwrap_err()
+            .code,
+        "CANCELLED"
+    );
+    let requests = script.requests.lock().unwrap();
+    assert_eq!(requests.len(), 5);
+    assert!(
+        requests[0]
+            .0
+            .url
+            .ends_with("/v1/transactions/a%2Fb%3Fq%23f")
+    );
+    assert!(
+        requests
+            .iter()
+            .all(|(r, _)| r.method == "GET" && r.body.is_empty())
+    );
+}
+
+fn card_challenge() -> PaymentChallenge {
+    PaymentChallenge::new("card-id", "shop", "card", "charge", Base64UrlJson::from_raw(encode(&json!({
+        "amount":"125", "currency":"usd", "recipient":"seller", "methodDetails":{
+            "acceptedNetworks":["visa"], "merchantName":"Shop", "encryptionJwk":{
+                "kty":"RSA", "alg":"RSA-OAEP-256", "use":"enc", "kid":"key", "n":"abc", "e":"AQAB"}}})).unwrap()))
+}
+fn card_options() -> CardPaymentOptions {
+    CardPaymentOptions {
+        merchant: Merchant {
+            name: "Shop".into(),
+            url: "https://shop.example".into(),
+            country_code: "US".into(),
+        },
+        instrument_id: None,
+    }
+}
+fn card_payload() -> Value {
+    json!({"encryptedPayload":"opaque-test-only", "network":"visa", "panLastFour":"1234", "panExpirationMonth":"12", "panExpirationYear":"2030", "extension":true})
+}
+
+#[tokio::test(start_paused = true)]
+async fn card_uses_existing_lifecycle_and_rejects_changed_credentials() {
+    for mutation in ["none", "challenge", "payload", "pending"] {
+        let challenge = card_challenge();
+        let mut returned = json!({"challenge":challenge,"payload":card_payload()});
+        if mutation == "challenge" {
+            returned["challenge"]["description"] = json!("altered");
+        }
+        if mutation == "payload" {
+            returned["payload"]["network"] = json!("other");
+        }
+        let ready =
+            json!({"state":"ready","transactionId":"tx","credential":encode(&returned).unwrap()});
+        let replies = if mutation == "pending" {
+            vec![reply(pending()), reply(ready)]
+        } else {
+            vec![reply(ready)]
+        };
+        let (buyer, script) = client(replies);
+        let mut options = card_options();
+        options.instrument_id = Some("11111111-1111-4111-8111-111111111111".into());
+        let result = buyer
+            .prepare_card(&challenge, options, &CancellationToken::new())
+            .await
+            .unwrap()
+            .wait(fast())
+            .await;
+        if matches!(mutation, "none" | "pending") {
+            assert_eq!(result.unwrap().payload["extension"], true);
+        } else {
+            assert_eq!(result.err().unwrap().code, "MPP_MALFORMED_CREDENTIAL");
+        }
+        let requests = script.requests.lock().unwrap();
+        let body: Value = serde_json::from_slice(&requests[0].0.body).unwrap();
+        assert_eq!(body["options"]["merchant"]["countryCode"], "US");
+        assert_eq!(
+            body["options"]["instrumentId"],
+            "11111111-1111-4111-8111-111111111111"
+        );
+        assert_eq!(body["challenge"], json!(challenge));
+        assert_eq!(requests.len(), if mutation == "pending" { 2 } else { 1 });
+    }
+}
+
+#[tokio::test]
+async fn card_options_fail_before_any_platform_request() {
+    let (buyer, script) = client(vec![]);
+    let mut expired = card_challenge();
+    expired.expires = Some("2000-01-01T00:00:00Z".into());
+    assert_eq!(
+        buyer
+            .prepare_card(&expired, card_options(), &CancellationToken::new())
+            .await
+            .err()
+            .unwrap()
+            .code,
+        "MPP_PAYMENT_EXPIRED"
+    );
+    for field in [
+        "name",
+        "long-name",
+        "url",
+        "long-url",
+        "country",
+        "country-digits",
+        "instrument",
+    ] {
+        let mut o = card_options();
+        match field {
+            "name" => o.merchant.name = " ".into(),
+            "long-name" => o.merchant.name = "x".repeat(201),
+            "url" => o.merchant.url = "file:///tmp/local".into(),
+            "long-url" => o.merchant.url = "x".repeat(2049),
+            "country" => o.merchant.country_code = "USA".into(),
+            "country-digits" => o.merchant.country_code = "12".into(),
+            _ => o.instrument_id = Some("bad".into()),
+        }
+        assert!(
+            buyer
+                .prepare_card(&card_challenge(), o, &CancellationToken::new())
+                .await
+                .is_err()
+        );
+    }
+    assert!(
+        buyer
+            .prepare_card(&challenge(), card_options(), &CancellationToken::new())
+            .await
+            .is_err()
+    );
+    assert!(
+        buyer
+            .prepare(
+                &card_challenge(),
+                PaymentOptions::default(),
+                &CancellationToken::new()
+            )
+            .await
+            .is_err()
+    );
+    assert!(script.requests.lock().unwrap().is_empty());
+}
 fn challenge() -> PaymentChallenge {
     PaymentChallenge::new(
         "id",

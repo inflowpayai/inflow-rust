@@ -71,6 +71,35 @@ export function buildAdapter(name = "adapter") {
   return binary;
 }
 
+export function signedSellerCases(index, sign) {
+  const copy = structuredClone(index);
+  for (const item of copy.cases) {
+    const challenge = item.input?.credential?.challenge;
+    if (!item.operation.startsWith("mpp.seller.") || !challenge) continue;
+    const original = challenge.id;
+    const signed = sign(challenge);
+    const replace = (value) => {
+      if (Array.isArray(value)) return value.map(replace);
+      if (value && typeof value === "object") {
+        const result = Object.fromEntries(
+          Object.entries(value).map(([key, entry]) => [
+            key,
+            (key === "id" || key === "challengeId") && entry === original
+              ? signed.id
+              : replace(entry),
+          ]),
+        );
+        if (value.id === original && value.method && value.request)
+          result.expires = signed.expires;
+        return result;
+      }
+      return value;
+    };
+    Object.assign(item, replace(item));
+  }
+  return copy;
+}
+
 async function main() {
   const { values } = parseArgs({
     options: {
@@ -104,7 +133,15 @@ async function main() {
   process.once("SIGINT", abort);
   process.once("SIGTERM", abort);
   try {
-    for (const suite of ["runtime", "mpp", "x402", "tap"]) {
+    for (const suite of [
+      "runtime",
+      "mpp",
+      "x402",
+      "tap",
+      "payment-status",
+      "stripe",
+      "card",
+    ]) {
       if (controller.signal.aborted) throw new Error("Conformance interrupted");
       const fixtures = await import(
         pathToFileURL(join(contractRoot, `fixtures/${suite}.mjs`))
@@ -121,35 +158,57 @@ async function main() {
                   ]),
                 ),
               )
-            : suite === "tap"
-              ? fixtures.tapCases
-              : fixtures.x402CasesForOwnedPayments();
+            : suite === "stripe" || suite === "card"
+              ? signedSellerCases(fixtures[`${suite}Cases`], (challenge) =>
+                  JSON.parse(
+                    command(binary, [
+                      "--sign-challenge",
+                      JSON.stringify(challenge),
+                    ]),
+                  ),
+                )
+              : suite === "payment-status"
+                ? fixtures.paymentStatusCases
+                : suite === "tap"
+                  ? fixtures.tapCases
+                  : fixtures.x402CasesForOwnedPayments();
       const capabilities = {
         suites:
-          suite === "runtime"
-            ? ["runtime"]
-            : suite === "tap"
-              ? ["tap-seller"]
-              : [`${suite}-core`, `${suite}-buyer`, `${suite}-seller`],
+          suite === "payment-status"
+            ? ["mpp-buyer", "x402-buyer"]
+            : suite === "stripe"
+              ? ["mpp-seller"]
+              : suite === "card"
+                ? ["mpp-buyer", "mpp-seller"]
+                : suite === "runtime"
+                  ? ["runtime"]
+                  : suite === "tap"
+                    ? ["tap-seller"]
+                    : [`${suite}-core`, `${suite}-buyer`, `${suite}-seller`],
         supported_features: [],
-        unsupported_features:
-          suite === "runtime" || suite === "tap"
-            ? []
-            : suite === "mpp"
-              ? [
-                  {
-                    id: "mpp-seller-subscriptions",
-                    reason:
-                      "Upstream mpp does not implement Seller subscription intents; Rust supports Seller charges and Buyer subscriptions.",
-                  },
-                ]
-              : [
-                  {
-                    id: "x402-shared-payment-wait",
-                    reason:
-                      "Waiting consumes the Rust payment handle; a second wait cannot be called on the same handle.",
-                  },
-                ],
+        unsupported_features: [
+          "runtime",
+          "tap",
+          "payment-status",
+          "stripe",
+          "card",
+        ].includes(suite)
+          ? []
+          : suite === "mpp"
+            ? [
+                {
+                  id: "mpp-seller-subscriptions",
+                  reason:
+                    "Upstream mpp does not implement Seller subscription intents; Rust supports Seller charges and Buyer subscriptions.",
+                },
+              ]
+            : [
+                {
+                  id: "x402-shared-payment-wait",
+                  reason:
+                    "Waiting consumes the Rust payment handle; a second wait cannot be called on the same handle.",
+                },
+              ],
       };
       for (const [name, value] of [
         ["cases", index],

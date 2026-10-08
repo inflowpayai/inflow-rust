@@ -9,6 +9,12 @@ pub use error::Error;
 pub use options::{AccessTokenProvider, Authentication, ClientOptions};
 pub use transport::{Transport, TransportError, TransportRequest, TransportResponse};
 
+#[derive(Clone, Copy, Debug, Default)]
+pub struct PaymentStatusOptions {
+    /// Additional read attempts, capped at three. Defaults to zero.
+    pub retries: u8,
+}
+
 #[doc(hidden)]
 pub mod internal;
 

@@ -16,6 +16,40 @@ struct Platform {
     requests: Mutex<Vec<TransportRequest>>,
     cancel_balances: Option<CancellationToken>,
 }
+
+#[tokio::test(start_paused = true)]
+async fn payment_status_is_a_read_not_payload_polling_or_replacement() {
+    let action = json!({"status":"PENDING","transactionId":"original","nextAction":{"type":"authenticate_card","url":"https://bank.example"}});
+    let (buyer, platform) = setup(vec![
+        (200, action.clone()),
+        (503, json!({})),
+        (200, json!({"status":"SETTLED"})),
+    ])
+    .await;
+    let token = CancellationToken::new();
+    assert_eq!(
+        buyer
+            .get_payment_status("original", PaymentStatusOptions::default(), &token)
+            .await
+            .unwrap(),
+        action
+    );
+    assert_eq!(
+        buyer
+            .get_payment_status("original", PaymentStatusOptions { retries: 1 }, &token)
+            .await
+            .unwrap()["status"],
+        "SETTLED"
+    );
+    let requests = platform.requests.lock().unwrap();
+    assert_eq!(requests.len(), 4);
+    assert!(
+        requests
+            .iter()
+            .skip(1)
+            .all(|r| r.method == Method::GET && r.url.ends_with("/v1/transactions/original"))
+    );
+}
 impl Transport for Platform {
     fn send(
         &self,

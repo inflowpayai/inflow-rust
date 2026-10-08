@@ -43,6 +43,16 @@ struct Supported {
 }
 
 impl Buyer {
+    /// Reads settlement and Buyer actions without changing or cancelling the payment.
+    pub async fn get_payment_status(
+        &self,
+        id: &str,
+        options: crate::PaymentStatusOptions,
+        cancellation: &CancellationToken,
+    ) -> Result<Value, Error> {
+        self.client.payment_status(id, options, cancellation).await
+    }
+
     /// Fetches Buyer capabilities before returning. Does not create an approval.
     pub async fn new(
         options: BuyerOptions,

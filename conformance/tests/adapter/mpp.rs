@@ -48,21 +48,66 @@ pub async fn execute(op: &str, input: &Value) -> Result<Value, Error> {
         _ => {}
     }
     let token = CancellationToken::new();
+    if op == "mpp.buyer.payment-status" {
+        let buyer = inflow_mpp_buyer::Buyer::new(transport::options(input)?)?;
+        let mut values = Vec::new();
+        for _ in 0..input["reads"].as_u64().unwrap_or(1) {
+            values.push(
+                buyer
+                    .get_payment_status(
+                        string(input, "transaction_id")?,
+                        inflow_core::PaymentStatusOptions {
+                            retries: input["retries"].as_u64().unwrap_or(0) as u8,
+                        },
+                        &token,
+                    )
+                    .await?,
+            );
+        }
+        return Ok(json!(values));
+    }
     if matches!(op, "mpp.buyer.fulfil" | "mpp.buyer.cancel") {
         use inflow_mpp_buyer::{Buyer, PaymentOptions, WaitOptions};
         let buyer = Buyer::new(transport::options(input)?)?;
-        let payment = buyer
-            .prepare(
-                &read(input["challenge"].clone())?,
-                PaymentOptions {
-                    instrument_id: input["context"]["instrumentId"].as_str().map(str::to_owned),
-                    subscription_id: input["context"]["subscriptionId"]
-                        .as_str()
-                        .map(str::to_owned),
-                },
-                &token,
-            )
-            .await?;
+        let payment = if input["challenge"]["method"] == "card" {
+            let context = &input["context"];
+            buyer
+                .prepare_card(
+                    &read(input["challenge"].clone())?,
+                    inflow_mpp_buyer::CardPaymentOptions {
+                        merchant: inflow_mpp_buyer::Merchant {
+                            name: context["merchant"]["name"]
+                                .as_str()
+                                .unwrap_or_default()
+                                .into(),
+                            url: context["merchant"]["url"]
+                                .as_str()
+                                .unwrap_or_default()
+                                .into(),
+                            country_code: context["merchant"]["countryCode"]
+                                .as_str()
+                                .unwrap_or_default()
+                                .into(),
+                        },
+                        instrument_id: context["instrumentId"].as_str().map(str::to_owned),
+                    },
+                    &token,
+                )
+                .await?
+        } else {
+            buyer
+                .prepare(
+                    &read(input["challenge"].clone())?,
+                    PaymentOptions {
+                        instrument_id: input["context"]["instrumentId"].as_str().map(str::to_owned),
+                        subscription_id: input["context"]["subscriptionId"]
+                            .as_str()
+                            .map(str::to_owned),
+                    },
+                    &token,
+                )
+                .await?
+        };
         if op == "mpp.buyer.cancel" {
             let _ = payment.cancel().await;
         }
@@ -109,13 +154,27 @@ pub async fn execute(op: &str, input: &Value) -> Result<Value, Error> {
     let method = match name {
         "inflow" => Method::Inflow,
         "tempo" => Method::Tempo,
+        "stripe" => Method::Stripe,
+        "card" => Method::Card,
         _ => return Err(bad("unknown method")),
     };
     let credential: Option<Credential> = input.get("credential").cloned().map(read).transpose()?;
-    let request = match &credential {
+    let mut request = match &credential {
         Some(c) => inflow_mpp::decode(c.challenge.request.raw())?,
         None => input["request"].clone(),
     };
+    if credential.is_some() && matches!(method, Method::Stripe | Method::Card) {
+        let cents = string(&request, "amount")?
+            .parse::<u64>()
+            .map_err(|_| bad("fixture wire amount"))?;
+        request["amount"] = json!(format!("{}.{:02}", cents / 100, cents % 100));
+        if let Some(metadata) = request["methodDetails"].get("metadata").cloned() {
+            request["metadata"] = metadata;
+        }
+        if let Some(billing) = request["methodDetails"].get("billingRequired").cloned() {
+            request["billingRequired"] = billing;
+        }
+    }
     let offer = seller.offer(method, request, ChallengeOptions::default())?;
     match op {
         "mpp.seller.prepare" => Ok(offer.request().clone()),
