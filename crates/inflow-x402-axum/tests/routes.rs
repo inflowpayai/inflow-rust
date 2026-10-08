@@ -235,6 +235,30 @@ async fn paid_response_preserves_cache_directives_and_resource_customization() {
         (vec!["max-age=60"], vec!["max-age=60", "private"]),
         (vec!["no-store"], vec!["no-store", "private"]),
         (
+            vec![r#"public, max-age=60, example="a, private, b""#],
+            vec![r#"public, max-age=60, example="a, private, b""#, "private"],
+        ),
+        (
+            vec![r#"example="a\", private, b""#],
+            vec![r#"example="a\", private, b""#, "private"],
+        ),
+        (
+            vec![r#"example="a\\", private"#],
+            vec![r#"example="a\\", private"#],
+        ),
+        (
+            vec![r#"example="a, b", PrIvAtE, max-age=60"#],
+            vec![r#"example="a, b", PrIvAtE, max-age=60"#],
+        ),
+        (
+            vec![r#"private="content-type""#],
+            vec![r#"private="content-type""#, "private"],
+        ),
+        (
+            vec![r#"example="a, private, b""#, "max-age=60"],
+            vec![r#"example="a, private, b""#, "max-age=60", "private"],
+        ),
+        (
             vec!["max-age=60", " PrIvAtE "],
             vec!["max-age=60", " PrIvAtE "],
         ),

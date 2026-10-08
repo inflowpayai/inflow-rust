@@ -34,6 +34,13 @@ Responses carrying a payment receipt add `private` unless it is already present,
 preserving the handler's other cache directives. This matches the Node payment
 adapter's cache policy. Routes outside this layer are unaffected.
 
+This policy is applied by the InFlow layer: upstream `x402-axum` 2.0.2 does not
+automatically set these cache headers. That omission is tracked in
+[upstream issue 135](https://github.com/x402-rs/x402-rs/issues/135). Using upstream
+middleware directly requires the application to supply its own cache policy.
+The InFlow layer recognizes `private` only outside quoted header values; text
+inside an extension such as `example="a, private, b"` does not make a response private.
+
 On a failed settlement, upstream returns HTTP 402 without a `Payment-Response`
 receipt header. Buyers therefore cannot decode a structured failure receipt from
 that response. Successful settlements include the receipt header. This limitation
