@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod card;
 mod seller;
 
 pub use inflow_core::{Authentication, ClientOptions, Environment, Error};

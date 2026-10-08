@@ -15,6 +15,23 @@ pub async fn router(
     secret: String,
     token: &CancellationToken,
 ) -> Result<Router> {
+    router_with_method(
+        options,
+        secret,
+        Method::Inflow,
+        json!({"amount":"0.01", "currency":"USDC", "methodDetails":{"rail":"balance"}}),
+        token,
+    )
+    .await
+}
+
+pub async fn router_with_method(
+    options: ClientOptions,
+    secret: String,
+    method: Method,
+    request: serde_json::Value,
+    token: &CancellationToken,
+) -> Result<Router> {
     let seller = Seller::new(
         options,
         SellerOptions {
@@ -25,8 +42,8 @@ pub async fn router(
     )
     .await?;
     let offer = seller.offer(
-        Method::Inflow,
-        json!({"amount":"0.01", "currency":"USDC", "methodDetails":{"rail":"balance"}}),
+        method,
+        request,
         ChallengeOptions {
             description: Some("Example widgets".into()),
             ..Default::default()

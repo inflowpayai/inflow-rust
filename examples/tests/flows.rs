@@ -42,7 +42,11 @@ impl Transport for Platform {
             let mut status = 200;
             let result = match path.as_str() {
                 "/v1/mpp/config" => {
-                    json!({"sellerId":"11111111-1111-4111-8111-111111111111","featureFlags":{"idempotencyKeyEnabled":true},"supportedMethods":[{"id":"inflow","methodDetails":{"currencyRails":{"USDC":{"rail":"balance"}},"intentCurrencyRails":{"charge":{"USDC":[{"rail":"balance"}]}}}}]})
+                    if self.mode == "card" {
+                        json!({"sellerId":"11111111-1111-4111-8111-111111111111","supportedMethods":[{"id":"card","supportedCurrencies":["USD"],"supportedIntents":["charge"],"methodDetails":{"recipient":"merchant","merchantName":"Shop","acceptedNetworks":["visa"],"encryptionJwk":{"kty":"RSA","alg":"RSA-OAEP-256","use":"enc","kid":"key","n":"abc","e":"AQAB"}}}]})
+                    } else {
+                        json!({"sellerId":"11111111-1111-4111-8111-111111111111","featureFlags":{"idempotencyKeyEnabled":true},"supportedMethods":[{"id":"inflow","methodDetails":{"currencyRails":{"USDC":{"rail":"balance"}},"intentCurrencyRails":{"charge":{"USDC":[{"rail":"balance"}]}}}}]})
+                    }
                 }
                 "/v1/x402/config" => {
                     json!({"assets":[],"wallets":[],"paymentMethods":[{"scheme":"balance","network":"inflow:1","payTo":"seller","decimals":18}],"supported":[]})
@@ -54,8 +58,12 @@ impl Transport for Platform {
                     if self.mode == "pending" {
                         json!({"state":"pending","approvalId":"approval","transactionId":"transaction","retryAfterSeconds":0})
                     } else {
-                        let credential =
-                            json!({"challenge":body["challenge"],"payload":{"proof":"synthetic"}});
+                        let payload = if self.mode == "card" {
+                            json!({"encryptedPayload":"synthetic","network":"visa","panLastFour":"1234","panExpirationMonth":"12","panExpirationYear":"2030"})
+                        } else {
+                            json!({"proof":"synthetic"})
+                        };
+                        let credential = json!({"challenge":body["challenge"],"payload":payload});
                         json!({"state":"ready","credential":inflow_mpp::encode(&credential).unwrap()})
                     }
                 }
@@ -83,13 +91,17 @@ impl Transport for Platform {
                 }
                 "/v1/mpp/validate" => {
                     let c = &body["credential"];
-                    json!({"success":true,"credential":c,"challenge":c["challenge"],"request":inflow_mpp::decode(c["challenge"]["request"].as_str().unwrap()).unwrap(),"method":"inflow","intent":"charge","details":{}})
+                    let mut result = json!({"success":true,"credential":c,"challenge":c["challenge"],"request":inflow_mpp::decode(c["challenge"]["request"].as_str().unwrap()).unwrap(),"method":c["challenge"]["method"],"intent":"charge","details":{}});
+                    if let Some(source) = c.get("source") {
+                        result["source"] = source.clone();
+                    }
+                    result
                 }
                 "/v1/mpp/broadcast" if self.mode == "settlement-failure" => {
                     json!({"problem":{"detail":"Settlement unavailable","status":402}})
                 }
                 "/v1/mpp/broadcast" => {
-                    json!({"receipt":{"method":"inflow","reference":"transaction","status":"success","timestamp":"2026-10-03T00:00:00Z"}})
+                    json!({"receipt":{"method":body["credential"]["challenge"]["method"],"challengeId":body["credential"]["challenge"]["id"],"reference":"transaction","status":"success","timestamp":"2026-10-03T00:00:00Z"}})
                 }
                 "/v1/x402/verify" => {
                     json!({"isValid":self.mode != "platform-failure","payer":"buyer","invalidReason":"declined"})
@@ -125,6 +137,65 @@ async fn serve(app: Router) -> (url::Url, tokio::task::JoinHandle<()>) {
         axum::serve(listener, app).await.unwrap();
     });
     (url, task)
+}
+
+#[tokio::test]
+async fn card_example_buyer_pays_example_seller_without_platform_key_leakage() {
+    let (options, platform) = setup("card");
+    let token = CancellationToken::new();
+    let app = mpp_seller::router_with_method(
+        options.clone(),
+        "test-secret-at-least-32-characters".into(),
+        inflow_mpp_seller::Method::Card,
+        json!({"amount":"1.25"}),
+        &token,
+    )
+    .await
+    .unwrap()
+    .layer(axum::middleware::from_fn(
+        |request: axum::extract::Request, next: axum::middleware::Next| async move {
+            assert!(request.headers().get("x-api-key").is_none());
+            next.run(request).await
+        },
+    ));
+    let (url, server) = serve(app).await;
+    let mut output = Vec::new();
+    let result = mpp_buyer::run_with_card(
+        options,
+        url,
+        Some(inflow_mpp_buyer::CardPaymentOptions {
+            merchant: inflow_mpp_buyer::Merchant {
+                name: "Shop".into(),
+                url: "https://shop.example".into(),
+                country_code: "US".into(),
+            },
+            instrument_id: None,
+        }),
+        &token,
+        &mut output,
+    )
+    .await;
+    server.abort();
+    result.unwrap();
+    let output = String::from_utf8(output).unwrap();
+    assert!(output.contains("widgets"));
+    assert!(!output.contains("synthetic"));
+    assert!(!output.contains("platform-only-key"));
+    let calls = platform.calls.lock().unwrap();
+    assert_eq!(
+        calls
+            .iter()
+            .filter(|r| r.url.ends_with("/transactions/mpp"))
+            .count(),
+        1
+    );
+    assert_eq!(
+        calls
+            .iter()
+            .filter(|r| r.url.ends_with("/broadcast"))
+            .count(),
+        1
+    );
 }
 
 #[tokio::test]

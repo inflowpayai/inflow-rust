@@ -17,7 +17,7 @@ exact commands, approval waiting, receipt inspection, and failure handling.
 | [`inflow-tap-seller`](crates/inflow-tap-seller/README.md)   | Independent TAP request verification, trusted-key caching, and replay protection.                |
 | [`inflow-mpp`](crates/inflow-mpp/README.md)                 | MPP codecs, method-field validation, and shared InFlow protocol integration.                     |
 | [`inflow-mpp-buyer`](crates/inflow-mpp-buyer/README.md)     | Payment creation, approval polling, subscription authorization, and cancellation for MPP Buyers. |
-| [`inflow-mpp-seller`](crates/inflow-mpp-seller/README.md)   | Signed offers, credential validation, and settlement for InFlow and Tempo charges.               |
+| [`inflow-mpp-seller`](crates/inflow-mpp-seller/README.md)   | Signed offers, validation, and settlement for InFlow, Tempo, Stripe, and Visa CARD charges.        |
 | [`inflow-x402`](crates/inflow-x402/README.md)               | InFlow integration with the x402 protocol.                                                       |
 | [`inflow-x402-buyer`](crates/inflow-x402-buyer/README.md)   | Buyer integration for InFlow x402 payments.                                                      |
 | [`inflow-x402-seller`](crates/inflow-x402-seller/README.md) | Seller configuration, offers, verification, and settlement for x402 payments.                    |

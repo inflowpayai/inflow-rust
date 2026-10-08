@@ -16,6 +16,7 @@ fn all_programs_explain_missing_configuration_without_a_network_call() {
         env!("CARGO_BIN_EXE_mpp-seller"),
         env!("CARGO_BIN_EXE_x402-buyer"),
         env!("CARGO_BIN_EXE_x402-seller"),
+        env!("CARGO_BIN_EXE_payment-status"),
     ] {
         let output = Command::new(binary)
             .env_remove("INFLOW_API_KEY")

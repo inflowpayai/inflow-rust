@@ -2,7 +2,7 @@
 
 Obtain InFlow payment credentials for MPP challenges. The Buyer creates a payment
 once, waits for approval when required, and returns the platform's credential.
-It supports InFlow charge, InFlow subscription, and Tempo charge challenges.
+It supports InFlow charge, InFlow subscription, Tempo charge, and Visa CARD charge challenges.
 It does not send the credential to the selling Service: your HTTP or MCP client
 owns that step.
 
@@ -127,6 +127,47 @@ known approval to cancel; server expiry remains the backstop.
 
 Successful credential completion disarms approval cleanup. A subsequent failure
 to deliver the credential or receive the resource is not payment reversal.
+
+## Visa CARD purchases
+
+Call `prepare_card` with `CardPaymentOptions` rather than `prepare`. Supply a
+`Merchant` with its name, absolute HTTP/HTTPS URL, and two-letter country code.
+`instrument_id: None` uses the account's primary card; `Some(id)` selects that
+linked card. InFlow checks ownership, Visa eligibility and an unexpired allowance
+covering the purchase. The SDK does not substitute another card after a rejection.
+
+```no_run
+use inflow_mpp_buyer::{Buyer, CardPaymentOptions, Merchant, PaymentChallenge, CancellationToken, WaitOptions};
+async fn buy(buyer: &Buyer, challenge: &PaymentChallenge) -> Result<(), inflow_mpp_buyer::Error> {
+    let payment = buyer.prepare_card(challenge, CardPaymentOptions {
+        merchant: Merchant { name: "Example shop".into(), url: "https://shop.example".into(), country_code: "US".into() },
+        instrument_id: None,
+    }, &CancellationToken::new()).await?;
+    let credential = payment.wait(WaitOptions::default()).await?;
+    // Send the complete credential to the original Seller; readiness is not settlement.
+    let _header = inflow_mpp_buyer::encode_credential(&credential)?;
+    Ok(())
+}
+```
+
+The returned `Payment` uses the same approval, wait and cancellation lifecycle.
+The returned credential must match the entire requested challenge. Its encrypted
+payload remains opaque; the SDK neither decrypts it nor rewrites a mismatch.
+Stripe token creation is not an InFlow Buyer operation; Stripe Seller offers need
+an external Stripe-capable payer.
+
+## Read settlement status
+
+`buyer.get_payment_status(transaction_id, PaymentStatusOptions::default(), &token)`
+reads the original payment and returns its JSON snapshot, including `status` and
+any `nextAction`. It sends one request by default; `retries` explicitly permits
+up to three additional attempts. Each call reads a fresh snapshot.
+
+`PENDING` or a ready credential does not mean settlement. An `authenticate_card`
+action contains the dashboard URL for the buyer to complete verification. The SDK
+returns it without opening it or sending credentials there. Cancelling a status
+read does not cancel the payment. A failed read—including 404—is not permission to
+create a replacement purchase. Retain the original transaction ID and credential.
 
 ## Errors
 

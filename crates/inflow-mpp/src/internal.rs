@@ -13,6 +13,15 @@ use tokio_util::sync::CancellationToken;
 pub struct MppClient(HttpClient);
 
 impl MppClient {
+    pub async fn payment_status(
+        &self,
+        id: &str,
+        options: inflow_core::PaymentStatusOptions,
+        cancellation: &CancellationToken,
+    ) -> Result<Value, Error> {
+        self.0.payment_status(id, options, cancellation).await
+    }
+
     pub fn approval_cleanup(&self, id: &str) -> Result<ApprovalCleanup, Error> {
         ApprovalCleanup::new(self.0.clone(), id)
     }

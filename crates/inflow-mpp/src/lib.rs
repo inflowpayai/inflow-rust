@@ -1,8 +1,10 @@
 #![doc = include_str!("../README.md")]
 
+mod card;
 mod codec;
 mod headers;
 mod methods;
+mod stripe;
 
 #[doc(hidden)]
 pub mod internal;

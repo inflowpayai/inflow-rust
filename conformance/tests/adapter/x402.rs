@@ -24,6 +24,31 @@ pub async fn execute(op: &str, input: &Value) -> Result<Value, Error> {
         _ => {}
     }
     let token = CancellationToken::new();
+    if op == "x402.buyer.payment-status" {
+        let buyer = inflow_x402_buyer::Buyer::new(
+            inflow_x402_buyer::BuyerOptions {
+                client: transport::options(input)?,
+                ..Default::default()
+            },
+            &token,
+        )
+        .await?;
+        let mut values = Vec::new();
+        for _ in 0..input["reads"].as_u64().unwrap_or(1) {
+            values.push(
+                buyer
+                    .get_payment_status(
+                        string(input, "transaction_id")?,
+                        inflow_core::PaymentStatusOptions {
+                            retries: input["retries"].as_u64().unwrap_or(0) as u8,
+                        },
+                        &token,
+                    )
+                    .await?,
+            );
+        }
+        return Ok(json!(values));
+    }
     if matches!(op, "x402.buyer.sign" | "x402.buyer.cancel") {
         use inflow_x402_buyer::{Buyer, BuyerOptions, SignOptions, WaitOptions};
         let buyer = Buyer::new(

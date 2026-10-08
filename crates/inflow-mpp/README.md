@@ -48,10 +48,13 @@ For example, `settlement` remains available through `receipt.extensions`.
 
 ## Method fields and amounts
 
-`validate_request` supports InFlow charge and subscription requests and Tempo charge
-requests. `validate_payload` checks the open InFlow payload or the proof field
-selected by the Tempo payload type. Neither function changes caller-owned data.
+`validate_request` supports InFlow charge and subscription requests, Tempo charge,
+Stripe charge, and Visa CARD charge. `validate_payload` checks the corresponding
+payload structure, not its payment validity. CARD encrypted data and Stripe tokens
+remain opaque. Neither function changes caller-owned data.
 
+Stripe and CARD **wire** amounts are integer USD cents, from `"50"` to `"99999999"`.
+The Seller's `offer` API accepts dollars and converts them before encoding a challenge.
 InFlow amounts are decimal strings such as `"1.50"`; Tempo amounts are integer
 strings in token base units such as `"1500000"`. Do not convert amounts through
 floating-point numbers. Capability selection and whether a currency or funding

@@ -88,15 +88,19 @@ fn classify(error: Error, op: &str, input: &Value) -> Value {
         "MPP_PAYMENT_CANCELLED" | "X402_APPROVAL_CANCELLED" => {
             ("payment-cancelled", "Payment cancelled.")
         }
-        "MPP_MALFORMED_CREDENTIAL" => ("invalid-credential", "Invalid credential."),
-        "INVALID_MPP_DATA" if op.starts_with("mpp.core.") => {
+        "MPP_MALFORMED_CREDENTIAL" | "MPP_CREDENTIAL_MISMATCH" => {
+            ("invalid-credential", "Invalid credential.")
+        }
+        "INVALID_MPP_DATA" => {
             if op == "mpp.core.decode-credential" {
                 ("invalid-credential", "Invalid credential.")
             } else {
                 ("invalid-input", "Invalid input.")
             }
         }
-        "MPP_UNSUPPORTED_CURRENCY"
+        "MPP_CARD_UNAVAILABLE"
+        | "MPP_STRIPE_UNAVAILABLE"
+        | "MPP_UNSUPPORTED_CURRENCY"
         | "MPP_AMBIGUOUS_RAIL"
         | "MPP_UNSUPPORTED_RAIL"
         | "MPP_INSTRUMENT_REQUIRED"
@@ -123,7 +127,9 @@ fn classify(error: Error, op: &str, input: &Value) -> Value {
         {
             ("invalid-input", "Invalid input.")
         }
-        _ if op.starts_with("x402.") && error.http_status > 0 => {
+        _ if (op.starts_with("x402.") || op == "mpp.buyer.payment-status")
+            && error.http_status > 0 =>
+        {
             return json!({"code":"api-error","message":"InFlow API request failed.","http_status":error.http_status,"details":{"body":*error.body}});
         }
         _ => {

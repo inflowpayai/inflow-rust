@@ -47,6 +47,20 @@ fn main() {
     let _ = inflow_mpp::decode("e30").unwrap();
     let _ = inflow_x402::generate_payment_id("pay_").unwrap();
     let _ = std::mem::size_of::<inflow_mpp_buyer::Buyer>();
+    let _ = inflow_mpp_buyer::Buyer::prepare_card;
+    let _ = inflow_mpp_buyer::Buyer::get_payment_status;
+    let _ = inflow_x402_buyer::Buyer::get_payment_status;
+    let _ = inflow_mpp_buyer::PaymentStatusOptions::default();
+    let _ = inflow_x402_buyer::PaymentStatusOptions { retries: 1 };
+    let _ = inflow_mpp_buyer::CardPaymentOptions {
+        merchant: inflow_mpp_buyer::Merchant {
+            name: "Example Store".into(),
+            url: "https://example.com".into(),
+            country_code: "US".into(),
+        },
+        instrument_id: None,
+    };
+    let _ = [inflow_mpp_seller::Method::Stripe, inflow_mpp_seller::Method::Card];
     let _ = std::mem::size_of::<inflow_mpp_seller::Seller>();
     let _ = std::mem::size_of::<inflow_x402_buyer::HttpBuyer>();
     let _ = inflow_x402_seller::OfferOptions::new("0.01 USDC");

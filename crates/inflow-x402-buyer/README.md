@@ -88,6 +88,20 @@ Without a creation response, the SDK cannot know which approval to cancel.
 Completion disarms cleanup before resource delivery: a failed merchant request does
 not reverse a signed payment.
 
+## Read settlement status
+
+Call `buyer.get_payment_status(transaction_id, PaymentStatusOptions::default(), &token)`
+to read an existing payment, including a pending instrument payment. The returned
+JSON preserves the server's `status`, transaction identifier and optional `nextAction`.
+An `authenticate_card` action supplies a dashboard URL; the SDK does not open it.
+Payload readiness and absence of an action do not establish settlement.
+
+Each call fetches a fresh snapshot with no retries by default. Set `retries` to
+permit up to three additional read attempts. Cancellation stops only the read.
+No status outcome creates or cancels a payment, changes the selected card, or
+replaces its signed payload. A failed read or 404 does not establish that the
+original payment failed. Keep its identifier and payment material for recovery.
+
 ## External wallets and upstream behavior
 
 `HttpBuyer::new(None)` supports external-wallet-only use without an InFlow account

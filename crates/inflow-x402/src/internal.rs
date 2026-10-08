@@ -14,6 +14,15 @@ use tokio_util::sync::CancellationToken;
 pub struct X402Client(HttpClient);
 
 impl X402Client {
+    pub async fn payment_status(
+        &self,
+        id: &str,
+        options: inflow_core::PaymentStatusOptions,
+        cancellation: &CancellationToken,
+    ) -> Result<Value, Error> {
+        self.0.payment_status(id, options, cancellation).await
+    }
+
     pub fn new(options: ClientOptions) -> Result<Self, Error> {
         Ok(Self(HttpClient::new(options)?))
     }

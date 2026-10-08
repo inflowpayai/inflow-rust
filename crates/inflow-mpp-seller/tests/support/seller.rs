@@ -2,6 +2,7 @@ use super::*;
 use inflow_core::{Authentication, Transport, TransportError, TransportRequest, TransportResponse};
 use std::{collections::VecDeque, future::Future, pin::Pin};
 
+mod cards;
 mod http;
 
 #[tokio::test]

@@ -2,7 +2,7 @@
 
 Accept MPP payments for a Service through InFlow. Create a signed challenge for
 an endpoint, validate the buyer's credential, and settle before delivering the
-paid resource. Supported methods are InFlow charge and Tempo charge.
+paid resource. Supported methods are InFlow, Tempo, Stripe, and CARD charge.
 
 [Source](https://github.com/inflowpayai/inflow-rust/tree/main/crates/inflow-mpp-seller) ·
 [MPP](https://mpp.dev/) · [Core codecs](../inflow-mpp/README.md)
@@ -79,6 +79,37 @@ configuration, not from the buyer's submitted credential.
 The SDK checks the credential against the Offer, including rail and
 method-specific transfer terms, before calling InFlow. Upstream MPP verifies
 the signed challenge, expiration, and any request-body digest.
+
+## Stripe tokens and Visa CARD
+
+Use `Method::Stripe` to accept an external payer's Stripe Shared Payment Token.
+Use `Method::Card` to accept an encrypted Visa network-token credential. Neither
+method decrypts tokens or contacts Stripe from your application: InFlow performs
+credential verification and processing through the existing validate/broadcast flow.
+
+Both methods accept **decimal USD strings**, from `"0.50"` through `"999999.99"`.
+For example, `seller.offer(Method::Card, json!({"amount":"1.25"}), options)`
+creates a challenge containing `"amount":"125"` in cents. Extra fractional digits
+are rejected, not rounded. This differs from Tempo's base-unit input.
+
+Authenticated Seller configuration supplies Stripe's network profile and allowed
+payment methods, or CARD's merchant recipient, name, Visa network and public
+encryption key. Route values cannot override these fields. An unavailable
+capability prevents offer construction. Your application needs an InFlow Seller
+key, not a Stripe secret key.
+
+- Both methods accept `externalId` of up to 255 characters, including an empty string.
+- Stripe accepts top-level `metadata`, placed inside `methodDetails` on the wire:
+  up to 45 string entries, keys up to 40 characters and values up to 500 characters.
+  Keys cannot be blank, contain brackets, or use the reserved names `externalId`,
+  `inflowMppTransactionId`, `mppChallengeId`, `mppIntent`, `mppMethod`, or `stripeNetworkProfile`.
+  A supplied challenge reference must match the credential's `externalId` exactly.
+- CARD accepts top-level `billingRequired`; omission and explicit `false` remain distinct.
+
+Both methods require a successful receipt with the same method and challenge ID.
+An absent payer `source` is represented as an empty string in the InFlow request;
+external payers do not need an InFlow payer identity. Token contents and optional
+billing fields are retained. See the [runnable examples](../../examples/README.md#card-and-stripe).
 
 ## Handle an HTTP request directly
 
