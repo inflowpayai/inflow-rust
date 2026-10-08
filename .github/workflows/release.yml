@@ -130,11 +130,11 @@ jobs:
             target/consumer-check/debug/build
             target/consumer-check/debug/deps/*.*
             !target/**/*.profraw
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: release-packages
           path: ${{ runner.temp }}/packages
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: release-reports
           path: ${{ runner.temp }}/reports
