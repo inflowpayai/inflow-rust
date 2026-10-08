@@ -3129,7 +3129,7 @@ name = "inflow-conformance"
 version = "0.2.0"
 dependencies = [
  "axum",
- "base64 0.22.1",
+ "base64 0.23.1",
  "futures-util",
  "http 1.5.0",
  "inflow-core",
@@ -3168,7 +3168,7 @@ name = "inflow-examples"
 version = "0.2.0"
 dependencies = [
  "axum",
- "base64 0.22.1",
+ "base64 0.23.1",
  "ed25519-dalek",
  "http 1.5.0",
  "inflow-core",
@@ -3239,7 +3239,7 @@ dependencies = [
 name = "inflow-tap-seller"
 version = "0.2.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "ed25519-dalek",
  "futures-util",
  "http 1.5.0",
@@ -3254,7 +3254,7 @@ dependencies = [
 name = "inflow-x402"
 version = "0.2.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "http 1.5.0",
  "inflow-core",
  "reqwest 0.13.5",
