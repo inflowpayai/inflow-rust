@@ -58,6 +58,14 @@ selection favors an asset the Buyer can afford. If balances cannot be read or no
 cover the price, selection retains the first preferred offer; the platform decides
 whether payment is authorized. Permit2 offers are not routed to InFlow-managed signing.
 
+For linked-card payments, include `"instrument"` in `BuyerOptions::prefer` and set
+`instrument_id: Some(card_id)` to select a particular card. With `instrument_id: None`,
+the platform uses the Buyer's primary card. This selection is sent only for the
+instrument scheme; it does not change the Seller's payment requirements or the
+default `balance`, `exact` preference. A rejected card returns the platform error
+without trying another card or creating a replacement payment. An explicit typed
+selection takes precedence over `SignOptions::transaction_fields["instrumentId"]`.
+
 ## Show the approval before waiting
 
 Call `Buyer::select` with a decoded upstream `PaymentRequired<OriginalJson>`, then

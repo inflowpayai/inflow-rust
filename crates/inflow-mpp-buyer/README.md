@@ -132,8 +132,11 @@ to deliver the credential or receive the resource is not payment reversal.
 
 `Error::code` distinguishes `MPP_PAYMENT_CANCELLED`, `MPP_PAYMENT_TIMEOUT`,
 `MPP_PAYMENT_EXPIRED`, `MPP_PAYMENT_FAILED`, and `MPP_MALFORMED_CREDENTIAL`.
-Payment failures retain the platform problem in `Error::body`; timeout and
-transaction-expiry errors retain `transactionId` there when supplied. Transport
+Payment failures retain the platform problem in `error.body["problem"]` (null when
+absent) and the supplied transaction identifier in `error.body["transactionId"]`.
+Timeout and transaction-expiry errors also retain `transactionId` when supplied.
+Use that identifier to investigate the original payment; do not create a replacement
+payment merely because an operation failed. Transport
 and authentication errors retain their core error codes and HTTP metadata.
 Do not log credentials or payment payloads.
 

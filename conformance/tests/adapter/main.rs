@@ -62,8 +62,16 @@ fn classify(error: Error, op: &str, input: &Value) -> Value {
     let mut details = json!({});
     let (code, message) = match error.code.as_str() {
         "MPP_PAYMENT_FAILED" => {
-            if input["include_problem"] != false && !error.body.is_null() {
-                details["problem"] = *error.body;
+            let problem = if op.starts_with("mpp.buyer.") {
+                if let Some(id) = error.body["transactionId"].as_str() {
+                    details["transaction_id"] = json!(id);
+                }
+                &error.body["problem"]
+            } else {
+                &error.body
+            };
+            if input["include_problem"] != false && !problem.is_null() {
+                details["problem"] = problem.clone();
             }
             ("payment-failed", "Payment failed.")
         }
@@ -110,6 +118,7 @@ fn classify(error: Error, op: &str, input: &Value) -> Value {
                         | "price must be a nonnegative decimal with at most eight decimal places"
                         | "price requires a currency"
                         | "price cannot be represented without truncation"
+                        | "instrument payments require USD 0.50–92233720368547758.07 in whole cents"
                 ) =>
         {
             ("invalid-input", "Invalid input.")

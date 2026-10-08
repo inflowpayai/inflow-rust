@@ -29,6 +29,7 @@ pub async fn execute(op: &str, input: &Value) -> Result<Value, Error> {
         let buyer = Buyer::new(
             BuyerOptions {
                 client: transport::options(input)?,
+                instrument_id: input["instrument_id"].as_str().map(str::to_owned),
                 ..Default::default()
             },
             &token,

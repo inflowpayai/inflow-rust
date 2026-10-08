@@ -304,6 +304,53 @@ async fn pending_budget_interrupts_a_poll_and_cancels_the_approval() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn failures_preserve_problem_and_transaction_without_recreating_payment() {
+    for pending_first in [false, true] {
+        for id in [
+            Value::Null,
+            json!(""),
+            json!(42),
+            json!("original-transaction"),
+        ] {
+            for problem in [
+                Value::Null,
+                json!({"title":"Declined", "detail":"Contact issuer", "extra":{"reason":7}}),
+            ] {
+                let mut replies = Vec::new();
+                if pending_first {
+                    replies.push(reply(json!({"state":"pending","transactionId":"original-transaction","retryAfterSeconds":0})));
+                }
+                let mut terminal = json!({"state":"failed","problem":problem});
+                if !id.is_null() {
+                    terminal["transactionId"] = id.clone();
+                }
+                replies.push(reply(terminal));
+                let (buyer, script) = client(replies);
+                let failure = error(start(&buyer).await.wait(fast()).await);
+                assert_eq!(failure.code, "MPP_PAYMENT_FAILED");
+                assert_eq!(failure.body["problem"], problem);
+                assert_eq!(
+                    failure.body["transactionId"].as_str(),
+                    id.as_str().filter(|id| !id.is_empty())
+                );
+                assert_eq!(
+                    failure.message,
+                    if problem.is_null() {
+                        "MPP payment failed"
+                    } else {
+                        "Contact issuer"
+                    }
+                );
+                assert_eq!(
+                    script.requests.lock().unwrap().len(),
+                    if pending_first { 2 } else { 1 }
+                );
+            }
+        }
+    }
+}
+
+#[tokio::test(start_paused = true)]
 async fn validate_inputs_and_never_retry_create_or_authorize() {
     let (buyer, script) = client(vec![]);
     for expiry in ["2000-01-01T00:00:00Z", "not-a-date"] {

@@ -76,6 +76,11 @@ impl Buyer {
         body.insert("accept".into(), read(requirement)?);
         body.insert("resource".into(), json!(required.resource));
         body.insert("x402Version".into(), json!(2));
+        if body["accept"]["scheme"] == "instrument"
+            && let Some(id) = &self.instrument_id
+        {
+            body.insert("instrumentId".into(), json!(id));
+        }
         if let Some(id) = options.payment_id {
             body.insert("remotePaymentId".into(), json!(id));
         }

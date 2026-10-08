@@ -177,6 +177,46 @@ fn credential(offer: &Offer, body: Option<&[u8]>) -> Credential {
 fn receipt() -> Value {
     json!({"receipt":{"method":"inflow","reference":"tx","status":"success","timestamp":"2026-09-01T12:00:00Z","settlement":{"amount":"1.25","currency":"USDC"},"extra":{"preserve":true}}})
 }
+
+#[tokio::test]
+async fn instrument_receipts_must_match_the_paid_challenge() {
+    for outcome in ["valid", "method", "identifier", "missing"] {
+        let (seller, script) =
+            seller(vec![Reply::Config(config()), Reply::Validate(json!({}))]).await;
+        let offer = seller
+            .offer(
+                Method::Inflow,
+                json!({"amount":"1.25","currency":"USD"}),
+                Default::default(),
+            )
+            .unwrap();
+        let credential = credential(&offer, None);
+        let mut result = receipt();
+        result["receipt"]["challengeId"] = json!(credential.challenge.id);
+        result["receipt"]["settlement"]["currency"] = json!("USD");
+        match outcome {
+            "method" => result["receipt"]["method"] = json!("tempo"),
+            "identifier" => result["receipt"]["challengeId"] = json!("other"),
+            "missing" => {
+                result["receipt"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("challengeId");
+            }
+            _ => {}
+        }
+        script
+            .replies
+            .lock()
+            .unwrap()
+            .push_back(Reply::Receipt(result));
+        let result = offer
+            .accept(&credential, None, &CancellationToken::new())
+            .await;
+        assert_eq!(result.is_ok(), outcome == "valid", "{outcome}");
+        assert_eq!(script.requests.lock().unwrap().len(), 3);
+    }
+}
 fn err<T>(result: Result<T, Error>) -> Error {
     match result {
         Err(e) => e,

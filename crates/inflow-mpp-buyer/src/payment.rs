@@ -295,6 +295,12 @@ fn failed(response: &Value) -> Error {
         .or_else(|| problem["title"].as_str())
         .unwrap_or("MPP payment failed");
     let mut error = Error::new("MPP_PAYMENT_FAILED", message);
-    error.body = Box::new(problem.clone());
+    error.body = Box::new(json!({"problem": problem}));
+    if let Some(id) = response["transactionId"]
+        .as_str()
+        .filter(|id| !id.is_empty())
+    {
+        error.body["transactionId"] = json!(id);
+    }
     error
 }

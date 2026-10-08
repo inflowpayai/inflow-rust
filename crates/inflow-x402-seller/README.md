@@ -41,16 +41,23 @@ let route = seller.route(&OfferOptions::new("$0.01"),
 
 Prices accept `$0.01`, `0.01 USDC`, or a `Price` with separate `amount` and
 `currency` fields. An explicit currency overrides one in the amount string.
-USD selects all configured stablecoin currencies. Conversion uses decimal strings,
+For balance and blockchain offers, USD selects all configured stablecoin currencies. Conversion uses decimal strings,
 not floating-point numbers; nonzero digits that would be truncated are rejected.
 Prices support up to eight decimal places. Amounts in returned offers are atomic
 units, with each configured asset or payment method's decimal scale.
 
-`OfferOptions` defaults to a 300-second timeout and all configured fixed-price
+`OfferOptions` defaults to a 300-second timeout and configured balance/blockchain
 schemes and networks. Optional scheme and network lists intersect; an empty list
 matches nothing. `permit2: true` selects compatible Permit2 on-chain offers without
 removing balance offers. No matching configuration produces an empty offer list;
 the Axum adapter rejects an empty protected route.
+
+Linked-card offers require `"instrument"` in `OfferOptions::schemes` and an
+advertised instrument method in Seller configuration. Their price must be fiat USD,
+at least $0.50, and represent exact whole cents no greater than
+9,223,372,036,854,775,807 cents. They do not require blockchain assets or wallets.
+The offer's wire amount still uses the configured method's decimal scale, not a
+hard-coded two-decimal scale. Network filters continue to apply.
 
 `offers` builds the accepted requirements. `route` also advertises gas sponsorship
 when every selected Permit2 offer and the facilitator support it. EIP-2612 is
