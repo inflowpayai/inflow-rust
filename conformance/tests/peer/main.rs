@@ -53,6 +53,36 @@ fn output(value: Value) -> Result<()> {
 
 async fn buyer(s: &Value, options: ClientOptions) -> Result<()> {
     let token = CancellationToken::new();
+    if let Some(id) = s["StatusID"].as_str() {
+        let mut snapshots = Vec::new();
+        if s["Protocol"] == "mpp" {
+            let buyer = inflow_mpp_buyer::Buyer::new(options)?;
+            for _ in 0..2 {
+                snapshots.push(
+                    buyer
+                        .get_payment_status(id, Default::default(), &token)
+                        .await?,
+                );
+            }
+        } else {
+            let buyer = inflow_x402_buyer::Buyer::new(
+                inflow_x402_buyer::BuyerOptions {
+                    client: options,
+                    ..Default::default()
+                },
+                &token,
+            )
+            .await?;
+            for _ in 0..2 {
+                snapshots.push(
+                    buyer
+                        .get_payment_status(id, Default::default(), &token)
+                        .await?,
+                );
+            }
+        }
+        return output(json!(snapshots));
+    }
     let target = local(string(s, "Target")?)?;
     let http = client()?;
     let response = if s["Protocol"] == "mpp" {
@@ -71,10 +101,10 @@ async fn buyer(s: &Value, options: ClientOptions) -> Result<()> {
             .map(|v| v.to_str())
             .collect::<std::result::Result<Vec<_>, _>>()?;
         let challenges = inflow_mpp::parse_challenges(&headers)?;
-        let method = if s["Variant"] == "tempo" {
-            "tempo"
-        } else {
-            "inflow"
+        let method = match s["Variant"].as_str() {
+            Some("tempo") => "tempo",
+            Some("card") => "card",
+            _ => "inflow",
         };
         let intent = if s["Variant"] == "subscription" {
             "subscription"
@@ -86,16 +116,33 @@ async fn buyer(s: &Value, options: ClientOptions) -> Result<()> {
             .find(|c| c.method.as_str() == method && c.intent.as_str() == intent)
             .ok_or("missing selected challenge")?;
         let buyer = inflow_mpp_buyer::Buyer::new(options)?;
-        let payment = buyer
-            .prepare(
-                challenge,
-                inflow_mpp_buyer::PaymentOptions {
-                    subscription_id: s["SubscriptionID"].as_str().map(str::to_owned),
-                    ..Default::default()
-                },
-                &token,
-            )
-            .await?;
+        let payment = if method == "card" {
+            buyer
+                .prepare_card(
+                    challenge,
+                    inflow_mpp_buyer::CardPaymentOptions {
+                        merchant: inflow_mpp_buyer::Merchant {
+                            name: "Interop shop".into(),
+                            url: "https://shop.example".into(),
+                            country_code: "US".into(),
+                        },
+                        instrument_id: s["InstrumentID"].as_str().map(str::to_owned),
+                    },
+                    &token,
+                )
+                .await?
+        } else {
+            buyer
+                .prepare(
+                    challenge,
+                    inflow_mpp_buyer::PaymentOptions {
+                        subscription_id: s["SubscriptionID"].as_str().map(str::to_owned),
+                        instrument_id: s["InstrumentID"].as_str().map(str::to_owned),
+                    },
+                    &token,
+                )
+                .await?
+        };
         let credential = payment
             .wait(inflow_mpp_buyer::WaitOptions {
                 poll_interval: Duration::ZERO,
@@ -119,7 +166,12 @@ async fn buyer(s: &Value, options: ClientOptions) -> Result<()> {
         let buyer = inflow_x402_buyer::Buyer::new(
             inflow_x402_buyer::BuyerOptions {
                 client: options,
-                ..Default::default()
+                instrument_id: s["InstrumentID"].as_str().map(str::to_owned),
+                prefer: if s["Variant"] == "instrument" {
+                    vec!["instrument".into()]
+                } else {
+                    vec!["balance".into(), "exact".into()]
+                },
             },
             &token,
         )
@@ -217,7 +269,21 @@ async fn mpp_handler(State(state): State<MppState>, headers: HeaderMap) -> Respo
                 Ok(response)
             }
             Err(error) if error.code == "MPP_PAYMENT_FAILED" => {
-                Ok((StatusCode::PAYMENT_REQUIRED, error.message).into_response())
+                let status = error.body["status"]
+                    .as_u64()
+                    .and_then(|value| u16::try_from(value).ok())
+                    .and_then(|value| StatusCode::from_u16(value).ok())
+                    .filter(|value| value.is_client_error() || value.is_server_error())
+                    .unwrap_or(StatusCode::PAYMENT_REQUIRED);
+                Ok((
+                    status,
+                    [
+                        ("content-type", "application/problem+json"),
+                        ("cache-control", "no-store"),
+                    ],
+                    error.body.to_string(),
+                )
+                    .into_response())
             }
             Err(error) => Err(error.into()),
         }
@@ -253,12 +319,20 @@ async fn seller(s: &Value, options: ClientOptions) -> Result<()> {
         let tempo = s["Variant"] == "tempo";
         let terms = if tempo {
             json!({"amount":"10000","currency":"0x20c0000000000000000000000000000000000000","recipient":"0x1111111111111111111111111111111111111111"})
+        } else if s["Variant"] == "card" || s["Variant"] == "stripe" {
+            json!({"amount":"1.25"})
+        } else if s["Variant"] == "instrument" {
+            json!({"amount":"1.25", "currency":"USD"})
         } else {
             json!({"amount":"0.01","currency":"USDC"})
         };
         let offer = seller.offer(
             if tempo {
                 inflow_mpp_seller::Method::Tempo
+            } else if s["Variant"] == "card" {
+                inflow_mpp_seller::Method::Card
+            } else if s["Variant"] == "stripe" {
+                inflow_mpp_seller::Method::Stripe
             } else {
                 inflow_mpp_seller::Method::Inflow
             },
@@ -270,7 +344,11 @@ async fn seller(s: &Value, options: ClientOptions) -> Result<()> {
             .with_state(MppState { offer, handler })
     } else {
         let seller = inflow_x402_seller::Seller::new(options, &token).await?;
-        let mut terms = inflow_x402_seller::OfferOptions::new("0.01 USDC");
+        let mut terms = inflow_x402_seller::OfferOptions::new(if s["Variant"] == "instrument" {
+            "1.25 USD"
+        } else {
+            "0.01 USDC"
+        });
         terms.schemes = Some(vec![string(s, "Variant")?.into()]);
         let route = seller.route(&terms, &token).await?;
         let layer = inflow_x402_axum::payment_layer(seller.facilitator(), route, &resource)?;

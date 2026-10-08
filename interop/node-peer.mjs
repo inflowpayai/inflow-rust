@@ -37,16 +37,60 @@ const options = {
 const output = (value) => process.stdout.write(`${JSON.stringify(value)}\n`);
 
 if (s.Role === "buyer") {
+  if (s.StatusID) {
+    const client =
+      s.Protocol === "mpp"
+        ? new (await load("mpp")).MppClient(options)
+        : await (await load("x402-buyer")).createInflowClient(options);
+    output([
+      await client.getPaymentStatus(s.StatusID),
+      await client.getPaymentStatus(s.StatusID),
+    ]);
+    process.exit(0);
+  }
   let response,
     receipt = null;
   if (s.Protocol === "mpp") {
+    if (s.Variant === "stripe") {
+      const codec = await load("mpp");
+      const initial = await fetch(s.Target, {
+        headers: { "X-App-Session": "test-only-session" },
+        redirect: "error",
+      });
+      if (initial.status !== 402) throw Error("Expected Stripe challenge");
+      const challenge = codec
+        .parseChallengeHeaders([initial.headers.get("www-authenticate")])
+        .find((c) => c.method === "stripe");
+      if (!challenge) throw Error("Missing Stripe challenge");
+      const credential = {
+        challenge,
+        payload: { spt: "synthetic-external-token" },
+      };
+      response = await fetch(s.Target, {
+        headers: {
+          "X-App-Session": "test-only-session",
+          Authorization: `Payment ${codec.encodeCredential(credential)}`,
+        },
+        redirect: "error",
+      });
+      output({
+        status: response.status,
+        body: await response.text(),
+        receipt: response.headers.has("Payment-Receipt")
+          ? codec.decodeReceipt(response.headers.get("Payment-Receipt"))
+          : null,
+      });
+      process.exit(0);
+    }
     const buyer = await load("mpp-buyer");
     const method =
-      s.Variant === "tempo"
-        ? buyer.tempo(options)
-        : s.Variant === "subscription"
-          ? buyer.inflow.subscription(options)
-          : buyer.inflow(options);
+      s.Variant === "card"
+        ? buyer.card(options)
+        : s.Variant === "tempo"
+          ? buyer.tempo(options)
+          : s.Variant === "subscription"
+            ? buyer.inflow.subscription(options)
+            : buyer.inflow(options);
     // Exercise one payment attempt; upstream defaults can buy again after a rejected credential.
     const client = buyer.Mppx.create({
       methods: [method],
@@ -56,8 +100,24 @@ if (s.Role === "buyer") {
     try {
       response = await client.fetch(s.Target, {
         headers: { "X-App-Session": "test-only-session" },
-        ...(s.SubscriptionID
-          ? { context: { subscriptionId: s.SubscriptionID } }
+        ...(s.SubscriptionID || s.InstrumentID || s.Variant === "card"
+          ? {
+              context: {
+                ...(s.SubscriptionID
+                  ? { subscriptionId: s.SubscriptionID }
+                  : {}),
+                ...(s.InstrumentID ? { instrumentId: s.InstrumentID } : {}),
+                ...(s.Variant === "card"
+                  ? {
+                      merchant: {
+                        name: "Interop shop",
+                        url: "https://shop.example",
+                        countryCode: "US",
+                      },
+                    }
+                  : {}),
+              },
+            }
           : {}),
       });
     } finally {
@@ -74,7 +134,12 @@ if (s.Role === "buyer") {
       "@x402/core/client",
     );
     const client = new x402HTTPClient(
-      await buyer.createInflowClient({ ...options, pollIntervalMs: 0 }),
+      await buyer.createInflowClient({
+        ...options,
+        pollIntervalMs: 0,
+        ...(s.Variant === "instrument" ? { prefer: ["instrument"] } : {}),
+        ...(s.InstrumentID ? { instrument: { id: s.InstrumentID } } : {}),
+      }),
     );
     response = await fetch(s.Target, {
       headers: { "X-App-Session": "test-only-session" },
@@ -116,23 +181,34 @@ if (s.Role === "buyer") {
   if (s.Protocol === "mpp") {
     const seller = await load("mpp-seller");
     const method =
-      s.Variant === "tempo"
-        ? seller.tempo({
-            ...options,
-            currency: "0x20c0000000000000000000000000000000000000",
-            recipient: "0x1111111111111111111111111111111111111111",
-          })
-        : s.Variant === "subscription"
-          ? seller.inflow.subscription(options)
-          : seller.inflow(options);
+      s.Variant === "card"
+        ? await seller.card(options)
+        : s.Variant === "stripe"
+          ? await seller.stripe(options)
+          : s.Variant === "tempo"
+            ? seller.tempo({
+                ...options,
+                currency: "0x20c0000000000000000000000000000000000000",
+                recipient: "0x1111111111111111111111111111111111111111",
+              })
+            : s.Variant === "subscription"
+              ? seller.inflow.subscription(options)
+              : seller.inflow(options);
     const framework = seller.Mppx.create({
       methods: [method],
       realm: "interop",
       secretKey: "test-only-binding-secret-at-least-32-bytes",
     });
     const terms = {
-      amount: s.Variant === "tempo" ? "10000" : "0.01",
-      ...(s.Variant === "tempo" ? {} : { currency: "USDC" }),
+      amount:
+        s.Variant === "tempo"
+          ? "10000"
+          : ["card", "stripe", "instrument"].includes(s.Variant)
+            ? "1.25"
+            : "0.01",
+      ...(["tempo", "stripe", "card"].includes(s.Variant)
+        ? {}
+        : { currency: s.Variant === "instrument" ? "USD" : "USDC" }),
       ...(s.Variant === "subscription"
         ? {
             periodUnit: "month",
@@ -172,7 +248,7 @@ if (s.Role === "buyer") {
     );
     const client = await seller.createInflowSellerClient(options);
     const route = await seller.inflowRoute(client, {
-      price: "0.01 USDC",
+      price: s.Variant === "instrument" ? "1.25 USD" : "0.01 USDC",
       schemes: [s.Variant],
     });
     const app = express();
