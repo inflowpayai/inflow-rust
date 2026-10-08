@@ -60,9 +60,23 @@ fn payment_cache_control(mut response: Response) -> Response {
             .get_all(CACHE_CONTROL)
             .iter()
             .any(|value| {
+                let mut quoted = false;
+                let mut escaped = false;
                 value
                     .as_bytes()
-                    .split(|byte| *byte == b',')
+                    .split(|byte| {
+                        // Quoted extension values can contain commas and escaped quotes.
+                        if escaped {
+                            escaped = false;
+                            return false;
+                        }
+                        match byte {
+                            b'\\' if quoted => escaped = true,
+                            b'"' => quoted = !quoted,
+                            _ => {}
+                        }
+                        *byte == b',' && !quoted
+                    })
                     .any(|directive| directive.trim_ascii().eq_ignore_ascii_case(b"private"))
             });
         if !private {
