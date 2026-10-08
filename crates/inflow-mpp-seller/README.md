@@ -137,6 +137,10 @@ settlement and does not authorize resource delivery. `accept` performs validatio
 again and then calls the terminal settlement operation. Do not deliver the paid
 resource based only on a prior `validate` result.
 
+For an InFlow instrument payment, `accept` also requires the receipt's method and
+challenge identifier to match the submitted credential. A missing or mismatched
+identifier is an error, not permission to deliver the resource or charge again.
+
 When the platform enables idempotency keys, each acceptance call generates one
 key and retains it across that call's transport retries. A separate call gets
 a separate key. The platform remains authoritative for credential replay.

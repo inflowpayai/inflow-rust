@@ -356,7 +356,7 @@ impl ChargeMethod for Bridge {
     async fn broadcast(
         &self,
         _: &PaymentCredential,
-        _: &ChargeRequest,
+        request: &ChargeRequest,
     ) -> Result<Receipt, VerificationError> {
         let client = &self.seller.0.client;
         let result = if self.seller.0.config["featureFlags"]["idempotencyKeyEnabled"] == true {
@@ -374,6 +374,17 @@ impl ChargeMethod for Bridge {
                 .await
         }
         .map_err(|e| self.retain(e))?;
+        let challenge = &self.wire["challenge"];
+        if challenge["method"] == "inflow"
+            && request
+                .method_details
+                .as_ref()
+                .is_some_and(|details| details["rail"] == "instrument")
+            && (result["receipt"]["method"] != challenge["method"]
+                || result["receipt"]["challengeId"] != challenge["id"])
+        {
+            return Err(self.retain(problem(&result, "broadcast")));
+        }
         encode(&result["receipt"])
             .and_then(|v| decode_receipt(&v))
             .map_err(|_| self.retain(problem(&result, "broadcast")))

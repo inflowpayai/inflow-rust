@@ -14,6 +14,8 @@ use tokio::{sync::Mutex, time::Instant};
 pub struct BuyerOptions {
     pub client: ClientOptions,
     pub prefer: Vec<String>,
+    /// Selects the Buyer's card for instrument payments; None uses the primary card.
+    pub instrument_id: Option<String>,
 }
 
 impl Default for BuyerOptions {
@@ -21,6 +23,7 @@ impl Default for BuyerOptions {
         Self {
             client: ClientOptions::default(),
             prefer: vec!["balance".into(), "exact".into()],
+            instrument_id: None,
         }
     }
 }
@@ -29,6 +32,7 @@ impl Default for BuyerOptions {
 pub struct Buyer {
     pub(crate) client: X402Client,
     prefer: Vec<String>,
+    pub(crate) instrument_id: Option<String>,
     supported: Arc<Mutex<Supported>>,
     generation: Arc<AtomicU64>,
 }
@@ -49,6 +53,7 @@ impl Buyer {
         Ok(Self {
             client,
             prefer: options.prefer,
+            instrument_id: options.instrument_id,
             supported: Arc::new(Mutex::new(Supported {
                 value,
                 fetched: Instant::now(),

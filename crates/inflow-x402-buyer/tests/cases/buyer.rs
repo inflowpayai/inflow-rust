@@ -431,6 +431,168 @@ async fn creation_polling_and_completion_preserve_server_payload() {
     assert_eq!(body["serviceId"], "service");
 }
 
+#[tokio::test]
+async fn instrument_selection_is_scoped_and_does_not_retry_rejected_cards() {
+    for (scheme, selected, extension, expected) in [
+        (
+            "instrument",
+            Some("selected"),
+            Some("extension"),
+            Some("selected"),
+        ),
+        ("instrument", None, None, None),
+        ("instrument", None, Some("extension"), Some("extension")),
+        ("balance", Some("selected"), None, None),
+        ("exact", Some("selected"), None, None),
+    ] {
+        let platform = Arc::new(Platform {
+            responses: Mutex::new(
+                vec![
+                    (
+                        200,
+                        json!({"kinds":[{"scheme":scheme,"network":"inflow:1"}]}),
+                    ),
+                    (400, json!({"code":"INSTRUMENT_NOT_FOUND"})),
+                ]
+                .into(),
+            ),
+            ..Default::default()
+        });
+        let buyer = Buyer::new(
+            BuyerOptions {
+                client: ClientOptions {
+                    transport: Some(platform.clone()),
+                    ..Default::default()
+                },
+                instrument_id: selected.map(str::to_owned),
+                ..Default::default()
+            },
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        let mut required: Value = serde_json::to_value(required()).unwrap();
+        required["accepts"][0]["scheme"] = json!(scheme);
+        let required: PaymentRequired<OriginalJson> = serde_json::from_value(required).unwrap();
+        let original = required.accepts[0].0.get().to_owned();
+        let mut options = SignOptions::default();
+        if let Some(id) = extension {
+            options
+                .transaction_fields
+                .insert("instrumentId".into(), json!(id));
+        }
+        assert!(
+            buyer
+                .prepare(
+                    &required.accepts[0],
+                    &required,
+                    options,
+                    &CancellationToken::new()
+                )
+                .await
+                .is_err()
+        );
+        assert_eq!(required.accepts[0].0.get(), original);
+        let requests = platform.requests.lock().unwrap();
+        assert_eq!(requests.len(), 2);
+        let body: Value = serde_json::from_slice(&requests[1].body).unwrap();
+        assert_eq!(body["instrumentId"].as_str(), expected);
+        assert!(body["accept"].get("instrumentId").is_none());
+    }
+}
+
+#[tokio::test]
+async fn instrument_http_payment_selects_the_card_and_preserves_the_paid_retry() {
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}/report", listener.local_addr().unwrap());
+    let mut required = serde_json::to_value(required()).unwrap();
+    required["accepts"][0]["scheme"] = json!("instrument");
+    required["accepts"][0]["asset"] = json!("USD");
+    required["resource"]["url"] = json!(url);
+    let payload = json!({"x402Version":2,"accepted":required["accepts"][0],"payload":{"transactionId":"paid"}});
+    let encoded = inflow_x402::encode(&payload);
+    let expected_header = format!("payment-signature: {encoded}");
+    let server = tokio::spawn(async move {
+        for paid in [false, true] {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            while !request.ends_with(b"\r\n\r\n") {
+                let mut bytes = [0; 1024];
+                let n = socket.read(&mut bytes).await.unwrap();
+                assert!(n > 0);
+                request.extend_from_slice(&bytes[..n]);
+            }
+            let request = String::from_utf8(request).unwrap();
+            assert!(!request.contains("platform-only"));
+            assert_eq!(request.contains(&expected_header), paid);
+            let reply = if paid {
+                "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok".into()
+            } else {
+                format!(
+                    "HTTP/1.1 402 Payment Required\r\nPayment-Required: {}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                    inflow_x402::encode(&required)
+                )
+            };
+            socket.write_all(reply.as_bytes()).await.unwrap();
+        }
+    });
+    let platform = Arc::new(Platform {
+        responses: Mutex::new(
+            vec![
+                (
+                    200,
+                    json!({"kinds":[{"scheme":"instrument","network":"inflow:1"}]}),
+                ),
+                (
+                    200,
+                    json!({"approvalId":"a","transactionId":"paid","approvalStatus":"APPROVED"}),
+                ),
+                (
+                    200,
+                    json!({"status":"COMPLETED","encodedPayload":encoded,"paymentPayload":payload}),
+                ),
+            ]
+            .into(),
+        ),
+        ..Default::default()
+    });
+    let token = CancellationToken::new();
+    let buyer = Buyer::new(
+        BuyerOptions {
+            client: ClientOptions {
+                authentication: Authentication::ApiKey("platform-only".into()),
+                transport: Some(platform.clone()),
+                ..Default::default()
+            },
+            prefer: vec!["instrument".into()],
+            instrument_id: Some("chosen-card".into()),
+        },
+        &token,
+    )
+    .await
+    .unwrap();
+    let response = HttpBuyer::new(Some(buyer))
+        .unwrap()
+        .execute(
+            reqwest::Client::new().get(url).build().unwrap(),
+            SignOptions::default(),
+            WaitOptions::default(),
+            &token,
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.text().await.unwrap(), "ok");
+    server.await.unwrap();
+    let requests = platform.requests.lock().unwrap();
+    assert_eq!(requests.len(), 3);
+    let creation: Value = serde_json::from_slice(&requests[1].body).unwrap();
+    assert_eq!(creation["instrumentId"], "chosen-card");
+}
+
 #[tokio::test(start_paused = true)]
 async fn failure_timeout_cancel_and_drop_cleanup_without_retrying_creation() {
     for status in ["DECLINED", "EXPIRED", "GENERAL_ERROR", "INSUFFICIENT_FUNDS"] {

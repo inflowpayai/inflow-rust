@@ -134,7 +134,7 @@ async fn shared_buyer_cases_use_the_public_lifecycle() {
                 case["id"]
             );
             if let Some(problem) = case["expect"]["error"]["details"].get("problem") {
-                assert_eq!(*error.body, *problem);
+                assert_eq!(error.body["problem"], *problem);
             }
             if let Some(id) = case["expect"]["error"]["details"].get("transaction_id") {
                 assert_eq!(error.body["transactionId"], *id);

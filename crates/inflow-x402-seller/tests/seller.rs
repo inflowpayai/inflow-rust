@@ -97,6 +97,78 @@ async fn shared_seller_offer_and_sponsorship_vectors() {
 fn normalized(offers: Vec<PaymentRequirements>) -> Value {
     json!(offers.into_iter().map(|v| json!({"scheme":v.scheme,"network":v.network,"payTo":v.pay_to,"price":{"asset":v.asset,"amount":v.amount},"maxTimeoutSeconds":v.max_timeout_seconds,"extra":v.extra})).collect::<Vec<_>>())
 }
+
+#[tokio::test]
+async fn instrument_offers_require_opt_in_fiat_and_exact_bounded_cents() {
+    for (price, schemes, network, empty_assets, expected) in [
+        ("$1", None, None, false, Some(0)),
+        ("1 USDC", Some("instrument"), None, false, Some(0)),
+        (
+            "$1",
+            Some("instrument"),
+            Some("inflow:other"),
+            false,
+            Some(0),
+        ),
+        ("$1", Some("instrument"), None, true, Some(1)),
+        ("$0.50", Some("instrument"), None, false, Some(1)),
+        ("$1.000", Some("instrument"), None, false, Some(1)),
+        (
+            "$92233720368547758.07",
+            Some("instrument"),
+            None,
+            false,
+            Some(1),
+        ),
+        ("$0.49", Some("instrument"), None, false, None),
+        ("$1.001", Some("instrument"), None, false, None),
+        (
+            "$92233720368547758.08",
+            Some("instrument"),
+            None,
+            false,
+            None,
+        ),
+    ] {
+        let server = fixture();
+        {
+            let mut state = server.0.lock().unwrap();
+            state.config["paymentMethods"] = json!([{"scheme":"instrument","network":"inflow:1","payTo":"seller","decimals":18}]);
+            if empty_assets {
+                state.config["assets"] = json!([]);
+                state.config["wallets"] = json!([]);
+            }
+        }
+        let seller = seller(&server).await;
+        let mut options = OfferOptions::new(price);
+        options.schemes = schemes.map(|v| vec![v.into()]);
+        options.networks = network.map(|v| vec![v.into()]);
+        let result = seller.offers(&options, &CancellationToken::new()).await;
+        match expected {
+            None => assert!(result.is_err(), "{price}"),
+            Some(count) => {
+                let offers = normalized(result.unwrap());
+                let instruments: Vec<_> = offers
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .filter(|v| v["scheme"] == "instrument")
+                    .collect();
+                assert_eq!(instruments.len(), count, "{price}");
+                for offer in instruments {
+                    assert_eq!(offer["price"]["asset"], "USD");
+                    assert_eq!(offer["extra"]["assetName"], "USD");
+                    assert!(
+                        offer["price"]["amount"]
+                            .as_str()
+                            .unwrap()
+                            .ends_with("0000000000000000")
+                    );
+                }
+            }
+        }
+    }
+}
 fn options(server: &Server) -> ClientOptions {
     ClientOptions {
         authentication: Authentication::ApiKey("seller-secret".into()),

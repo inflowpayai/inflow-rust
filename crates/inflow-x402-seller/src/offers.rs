@@ -260,7 +260,29 @@ fn build(value: Value, options: &OfferOptions) -> Result<Vec<PaymentRequirements
         if !options.includes(&method.scheme, &method.network) {
             continue;
         }
-        for currency in &currencies {
+        let instrument = method.scheme == "instrument";
+        if instrument {
+            if currency != "USD"
+                || !options
+                    .schemes
+                    .as_ref()
+                    .is_some_and(|s| s.iter().any(|s| s == "instrument"))
+            {
+                continue;
+            }
+            let cents = atomic(whole, fraction, 2)?;
+            if !cents.parse::<i64>().is_ok_and(|cents| cents >= 50) {
+                return Err(invalid(
+                    "instrument payments require USD 0.50–92233720368547758.07 in whole cents",
+                ));
+            }
+        }
+        // Instrument USD is fiat, independent of configured blockchain assets.
+        for currency in if instrument {
+            &["USD"][..]
+        } else {
+            &currencies
+        } {
             let mut extra = method.extra.clone().unwrap_or_default();
             extra.insert("assetName".into(), json!(currency));
             result.push(requirement(
