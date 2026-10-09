@@ -7,7 +7,6 @@ use serde_json::{Map, Value};
 /// Encoding and decoding do not verify payment or establish settlement.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Credential {
-    // mpp 0.14's ChallengeEcho drops description; upstream fix: mpp-rs PR490.
     pub challenge: PaymentChallenge,
     pub payload: Map<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]

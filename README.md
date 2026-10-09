@@ -78,7 +78,10 @@ Maintainers: see [release preparation and publishing](RELEASING.md) for the manu
 workflow, first-publication token setup, and Trusted Publishing configuration.
 
 For differences from upstream MPP credential and header handling, see the
-[MPP compatibility notes](crates/inflow-mpp/README.md#differences-from-upstream-mpp-014).
+[MPP compatibility notes](crates/inflow-mpp/README.md#differences-from-upstream-mpp).
+For Seller integration limitations, including the deferred Tower adapter and its
+upstream issue, see the
+[Seller compatibility notes](crates/inflow-mpp-seller/README.md#upstream-differences-and-limitations).
 
 - [InFlow](https://app.inflowpay.ai)
 - [InFlow SDK contracts](https://github.com/inflowpayai/inflow-specs)

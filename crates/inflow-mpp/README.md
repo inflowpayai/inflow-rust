@@ -65,12 +65,8 @@ Representing subscription request data does not establish Seller framework suppo
 members to match the InFlow API. Null array elements are retained. Use this for new
 request objects, not to rebuild an already-issued challenge's encoded fields.
 
-## Differences from upstream mpp 0.14
+## Differences from upstream MPP
 
-- **Credential descriptions:** upstream `ChallengeEcho` drops `description`.
-  This crate's credential retains the complete challenge. Upstream
-  [PR #490](https://github.com/tempoxyz/mpp-rs/pull/490) contains a fix that is not
-  included in mpp0.14.0. Description is display data, not a signed payment term.
 - **HTTP quoted strings:** upstream interprets `\u0041` inside a quoted header as
   `A`. HTTP quoted-pair rules interpret it as `u0041`. This crate's header codec
   follows HTTP semantics, matching the Node integration. The mismatch is tracked

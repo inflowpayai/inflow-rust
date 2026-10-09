@@ -283,8 +283,7 @@ impl Offer {
         if matches!(self.method, Method::Stripe | Method::Card) && credential.source.is_none() {
             wire["source"] = json!("");
         }
-        // mpp0.14 ChallengeEcho omits description (upstream PR490). Preserve the original per request;
-        // only the verification projection enters upstream, never the platform-bound credential.
+        // Keep the platform credential separate from upstream's verification representation.
         let projected = PaymentCredential {
             challenge: credential.challenge.to_echo(),
             payload: Value::Object(credential.payload.clone()),
@@ -531,9 +530,9 @@ fn json_error(_: serde_json::Error) -> Error {
 fn problem(result: &Value, operation: &str) -> Error {
     let body = result.get("problem").cloned().unwrap_or_else(|| {
         json!({
-            "type": "https://paymentauth.org/problems/verification-failed",
-            "title": "Verification Failed",
-            "status": 402,
+            "type": "https://paymentauth.org/problems/internal-payment-error",
+            "title": "Internal Payment Error",
+            "status": 500,
             "detail": format!("The PSP {operation} response was malformed.")
         })
     });

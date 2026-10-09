@@ -96,9 +96,8 @@ resource delivery for you.
 
 For MCP, obtain the `PaymentChallenge` from the payment-required tool response,
 choose the offer, and use the same Buyer lifecycle. Your MCP client's payment
-metadata handling must serialize the complete returned credential. Do not convert
-it into upstream `mpp::PaymentCredential`: that type cannot retain `description`
-in mpp0.14.0. No concrete MCP client dependency is required by this crate.
+metadata handling must serialize the complete returned credential, including its
+challenge description. No concrete MCP client dependency is required by this crate.
 
 ## Waiting and cancellation
 
@@ -186,10 +185,8 @@ Do not log credentials or payment payloads.
 This is an explicit credential workflow, not a `mpp::client::PaymentProvider`
 implementation. The upstream automatic HTTP path parses headers before invoking
 a provider and serializes its own credential type afterward. Those steps bypass
-our corrected header parsing and discard the challenge description in mpp0.14.0.
-The MCP provider interface uses the same credential type.
+our corrected header parsing.
 
-[Upstream PR #490](https://github.com/tempoxyz/mpp-rs/pull/490) addresses description
-preservation; [issue #556](https://github.com/tempoxyz/mpp-rs/issues/556) tracks the
-header parser. Using your own HTTP/MCP client with the complete credential avoids
-both limitations without replacing the upstream automatic-payment engine.
+[Issue #556](https://github.com/tempoxyz/mpp-rs/issues/556) tracks the header parser.
+Use this crate's explicit credential workflow with your HTTP/MCP client to preserve
+the header semantics described in the shared MPP codec documentation.
