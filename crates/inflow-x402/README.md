@@ -6,7 +6,7 @@ Shared x402 V2 wire helpers for InFlow Buyers and Sellers, using
 
 ```toml
 [dependencies]
-inflow-x402 = "0.3.0"
+inflow-x402 = "0.4.0"
 serde_json = "1"
 ```
 

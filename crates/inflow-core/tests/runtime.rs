@@ -19,6 +19,83 @@ use tokio_util::sync::CancellationToken;
 
 type Reply = Result<TransportResponse, TransportError>;
 
+struct KeyProvider {
+    calls: AtomicUsize,
+    value: Option<&'static str>,
+}
+impl inflow_core::ApiKeyProvider for KeyProvider {
+    fn api_key(&self) -> Pin<Box<dyn Future<Output = Result<String, Error>> + Send + '_>> {
+        Box::pin(async move {
+            let call = self.calls.fetch_add(1, Ordering::SeqCst) + 1;
+            match self.value {
+                Some("failure") => Err(Error::new("PROVIDER", "provider unavailable")),
+                Some(value) => Ok(value.into()),
+                None => Ok(format!("key-{call}")),
+            }
+        })
+    }
+}
+
+#[tokio::test]
+async fn api_key_provider_per_attempt() {
+    let provider = Arc::new(KeyProvider {
+        calls: AtomicUsize::new(0),
+        value: None,
+    });
+    let (client, script) = setup(
+        vec![reply(503, b"{}"), reply(200, b"{}"), reply(200, b"{}")],
+        Authentication::ApiKeyProvider(provider.clone()),
+        false,
+    );
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 0);
+    get(&client, 1).await.unwrap();
+    get(&client, 0).await.unwrap();
+    let requests = script.requests.lock().unwrap();
+    for (index, request) in requests.iter().enumerate() {
+        assert_eq!(request.headers["x-api-key"], format!("key-{}", index + 1));
+        assert!(!request.headers.contains_key("authorization"));
+    }
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 3);
+}
+
+#[tokio::test]
+async fn api_key_provider_failures_do_not_fetch_or_retry() {
+    for value in ["", " ", "bad\nkey", "é", "failure"] {
+        let provider = Arc::new(KeyProvider {
+            calls: AtomicUsize::new(0),
+            value: Some(value),
+        });
+        let (client, script) = setup(
+            vec![],
+            Authentication::ApiKeyProvider(provider.clone()),
+            false,
+        );
+        assert!(get(&client, 3).await.is_err());
+        assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+        assert!(script.requests.lock().unwrap().is_empty());
+    }
+}
+
+#[tokio::test]
+async fn concurrent_api_key_provider_requests_are_independent() {
+    let provider = Arc::new(KeyProvider {
+        calls: AtomicUsize::new(0),
+        value: None,
+    });
+    let (client, script) = setup(
+        vec![reply(200, b"{}"), reply(200, b"{}")],
+        Authentication::ApiKeyProvider(provider.clone()),
+        false,
+    );
+    let (one, two) = tokio::join!(get(&client, 0), get(&client, 0));
+    one.unwrap();
+    two.unwrap();
+    let requests = script.requests.lock().unwrap();
+    assert_eq!(requests[0].headers["x-api-key"], "key-1");
+    assert_eq!(requests[1].headers["x-api-key"], "key-2");
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 2);
+}
+
 struct Script {
     requests: Mutex<Vec<TransportRequest>>,
     replies: Mutex<VecDeque<Reply>>,
@@ -479,6 +556,31 @@ fn approval_cleanup_requires_the_callers_runtime() {
 }
 
 struct CancelHere(CancellationToken);
+
+impl inflow_core::ApiKeyProvider for CancelHere {
+    fn api_key(&self) -> Pin<Box<dyn Future<Output = Result<String, Error>> + Send + '_>> {
+        self.access_token()
+    }
+}
+
+#[tokio::test]
+async fn api_key_provider_cancellation_stops_before_transport() {
+    let token = CancellationToken::new();
+    let (client, transport) = setup(
+        vec![],
+        Authentication::ApiKeyProvider(Arc::new(CancelHere(token.clone()))),
+        false,
+    );
+    assert_eq!(
+        client
+            .request(Method::GET, "/", None, HeaderMap::new(), 3, &token)
+            .await
+            .unwrap_err()
+            .code,
+        "CANCELLED"
+    );
+    assert!(transport.requests.lock().unwrap().is_empty());
+}
 
 impl AccessTokenProvider for CancelHere {
     fn access_token(&self) -> Pin<Box<dyn Future<Output = Result<String, Error>> + Send + '_>> {

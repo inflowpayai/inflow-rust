@@ -21,15 +21,15 @@ axum = { version = "0.8", default-features = false, features = ["http1", "tokio"
 http.workspace = true
 base64.workspace = true
 futures-util.workspace = true
-inflow-tap-seller = { path = "../crates/inflow-tap-seller", version = "0.3.0" }
-inflow-core = { path = "../crates/inflow-core", version = "0.3.0" }
-inflow-mpp = { path = "../crates/inflow-mpp", version = "0.3.0" }
-inflow-mpp-buyer = { path = "../crates/inflow-mpp-buyer", version = "0.3.0" }
-inflow-mpp-seller = { path = "../crates/inflow-mpp-seller", version = "0.3.0" }
-inflow-x402 = { path = "../crates/inflow-x402", version = "0.3.0" }
-inflow-x402-axum = { path = "../crates/inflow-x402-axum", version = "0.3.0" }
-inflow-x402-buyer = { path = "../crates/inflow-x402-buyer", version = "0.3.0" }
-inflow-x402-seller = { path = "../crates/inflow-x402-seller", version = "0.3.0" }
+inflow-tap-seller = { path = "../crates/inflow-tap-seller", version = "0.4.0" }
+inflow-core = { path = "../crates/inflow-core", version = "0.4.0" }
+inflow-mpp = { path = "../crates/inflow-mpp", version = "0.4.0" }
+inflow-mpp-buyer = { path = "../crates/inflow-mpp-buyer", version = "0.4.0" }
+inflow-mpp-seller = { path = "../crates/inflow-mpp-seller", version = "0.4.0" }
+inflow-x402 = { path = "../crates/inflow-x402", version = "0.4.0" }
+inflow-x402-axum = { path = "../crates/inflow-x402-axum", version = "0.4.0" }
+inflow-x402-buyer = { path = "../crates/inflow-x402-buyer", version = "0.4.0" }
+inflow-x402-seller = { path = "../crates/inflow-x402-seller", version = "0.4.0" }
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
