@@ -215,6 +215,13 @@ async fn instrument_receipts_must_match_the_paid_challenge() {
             .accept(&credential, None, &CancellationToken::new())
             .await;
         assert_eq!(result.is_ok(), outcome == "valid", "{outcome}");
+        if let Err(error) = result {
+            assert_eq!(error.body["status"], 500);
+            assert_eq!(
+                error.body["type"],
+                "https://paymentauth.org/problems/internal-payment-error"
+            );
+        }
         assert_eq!(script.requests.lock().unwrap().len(), 3);
     }
 }
@@ -582,6 +589,12 @@ async fn validation_rejects_inconsistent_envelopes_and_preserves_problems() {
         if let Some(p) = patch.get("problem") {
             assert_eq!(*error.body, *p);
             assert_eq!(error.to_string(), "denied");
+        } else {
+            assert_eq!(error.body["status"], 500);
+            assert_eq!(
+                error.body["type"],
+                "https://paymentauth.org/problems/internal-payment-error"
+            );
         }
         assert_eq!(script.requests.lock().unwrap().len(), 2);
     }
@@ -727,6 +740,12 @@ async fn terminal_failure_network_failure_and_cancellation_never_become_receipts
         if let Some(p) = result.get("problem") {
             assert_eq!(*error.body, *p);
             assert_eq!(error.to_string(), "denied");
+        } else {
+            assert_eq!(error.body["status"], 500);
+            assert_eq!(
+                error.body["type"],
+                "https://paymentauth.org/problems/internal-payment-error"
+            );
         }
     }
     for during_broadcast in [false, true] {

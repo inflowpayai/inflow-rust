@@ -3724,9 +3724,9 @@ dependencies = [
 
 [[package]]
 name = "mpp"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "766294de1245ace4906c56981dc58a6427b79ab08af0cd789f534c89300db988"
+checksum = "ca04f3086f274798381ca9fad061ca9b4c490c52591856ce7b6d21c86ea4089a"
 dependencies = [
  "async-stream",
  "base64 0.22.1",

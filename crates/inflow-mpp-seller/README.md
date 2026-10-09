@@ -189,32 +189,26 @@ request-body contents.
 
 ## Upstream differences and limitations
 
-- The SDK preserves the full credential, including the challenge description,
-  while using upstream MPP for verification. `mpp 0.14.0`'s credential projection
-  omits that field; [upstream PR #490](https://github.com/tempoxyz/mpp-rs/pull/490)
-  addresses it. Do not convert incoming credentials to that lossy type before
-  passing them to this SDK.
+Malformed validation responses and missing or mismatched receipts return
+`MPP_PAYMENT_FAILED` with an `internal-payment-error` problem and status 500 in
+`Error.body`. Explicit platform problems retain their original fields. Do not map
+every `MPP_PAYMENT_FAILED` to HTTP 402: inspect the problem status. An internal
+failure during settlement can leave the payment outcome unknown; it is not an
+instruction to create another payment.
+
 - Expected-offer checks include InFlow and Tempo method-specific terms.
   [Upstream issue #555](https://github.com/tempoxyz/mpp-rs/issues/555) tracks the
   corresponding upstream binding support.
 - Seller subscriptions are not exposed because upstream lacks the Seller intent
   implementation. [Issue #554](https://github.com/tempoxyz/mpp-rs/issues/554)
   tracks it. Buyer subscription support is separate.
-- Upstream `PaymentBodyLayer` in `mpp 0.14.0` reads `Authorization` even when the
-  challenge specifies `Payment-Authorization`. It cannot combine that separate
-  payment header with automatic body verification. The direct handler above
-  supports both without rewriting Service authentication headers.
-  [Upstream PR #419](https://github.com/tempoxyz/mpp-rs/pull/419) contains the fix;
-  it is absent from the dependency version used here. Direct integration supports
-  body binding and separate Service authentication without that layer.
-- Upstream middleware in `mpp 0.14.0` turns every verification failure into a
-  fresh 402 challenge, including platform or transport failures. Use the direct
-  handler path to preserve the distinction between rejected credentials and
-  unavailable payment infrastructure. [Upstream PR #497](https://github.com/tempoxyz/mpp-rs/pull/497)
-  corrects the middleware's error handling. Do not automatically pay again after
-  an ambiguous settlement failure.
-
-This crate exposes direct handler integration, not an automatic Tower or Axum
-payment layer. That keeps platform errors available to the application while the
-released upstream middleware has the limitations above. Neither limitation
-requires the application to implement payment verification itself.
+- **Framework integration:** use the direct handler integration shown above.
+  The optional Tower adapter is deferred because upstream Tower middleware returns
+  empty error bodies. Applications need a useful explanation when payment fails,
+  including when the server cannot confirm the result. Upstream's Axum extractors
+  provide problem bodies, but switching to extractors would change the integration
+  design; it is not a prerequisite for using this SDK. We retain the Tower design
+  and track response-body support in
+  [upstream issue #561](https://github.com/tempoxyz/mpp-rs/issues/561), following
+  [PR #497](https://github.com/tempoxyz/mpp-rs/pull/497). Direct Seller integrations
+  and SDK releases do not depend on that optional adapter.

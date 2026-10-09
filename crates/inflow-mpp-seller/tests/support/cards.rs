@@ -170,7 +170,15 @@ async fn card_and_stripe_validate_then_settle_and_require_bound_receipts() {
             if outcome == "success" {
                 assert_eq!(result.unwrap().reference, "ref");
             } else {
-                assert_eq!(err(result).code, "MPP_PAYMENT_FAILED");
+                let error = err(result);
+                assert_eq!(error.code, "MPP_PAYMENT_FAILED");
+                if outcome != "problem" {
+                    assert_eq!(error.body["status"], 500);
+                    assert_eq!(
+                        error.body["type"],
+                        "https://paymentauth.org/problems/internal-payment-error"
+                    );
+                }
             }
             let requests = script.requests.lock().unwrap();
             assert_eq!(requests.len(), 3);
