@@ -12,7 +12,7 @@ include = ["src/**", "tests/**", "README.md", "LICENSE"]
 
 [dependencies]
 http.workspace = true
-inflow-core = { path = "../inflow-core", version = "0.2.0" }
+inflow-core = { path = "../inflow-core", version = "0.3.0" }
 mpp.workspace = true
 serde.workspace = true
 serde_json.workspace = true

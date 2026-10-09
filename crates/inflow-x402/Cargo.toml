@@ -13,7 +13,7 @@ include = ["src/**", "tests/**", "README.md", "LICENSE"]
 [dependencies]
 base64.workspace = true
 http.workspace = true
-inflow-core = { path = "../inflow-core", version = "0.2.0" }
+inflow-core = { path = "../inflow-core", version = "0.3.0" }
 serde_json.workspace = true
 sha2.workspace = true
 tokio.workspace = true
