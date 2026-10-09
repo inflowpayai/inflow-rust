@@ -5,7 +5,7 @@ signers through the upstream `x402-types` interfaces.
 
 ```toml
 [dependencies]
-inflow-x402-buyer = "0.2.0"
+inflow-x402-buyer = "0.3.0"
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```

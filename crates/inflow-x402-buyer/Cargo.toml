@@ -20,8 +20,8 @@ alloy-eip7702 = { workspace = true, optional = true }
 alloy-primitives = { workspace = true, optional = true, features = ["k256"] }
 alloy-sol-types = { workspace = true, optional = true }
 http.workspace = true
-inflow-core = { path = "../inflow-core", version = "0.2.0" }
-inflow-x402 = { path = "../inflow-x402", version = "0.2.0" }
+inflow-core = { path = "../inflow-core", version = "0.3.0" }
+inflow-x402 = { path = "../inflow-x402", version = "0.3.0" }
 reqwest.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

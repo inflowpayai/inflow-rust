@@ -11,8 +11,8 @@ readme = "README.md"
 include = ["src/**", "tests/**", "README.md", "LICENSE"]
 
 [dependencies]
-inflow-core = { path = "../inflow-core", version = "0.2.0" }
-inflow-mpp = { path = "../inflow-mpp", version = "0.2.0" }
+inflow-core = { path = "../inflow-core", version = "0.3.0" }
+inflow-mpp = { path = "../inflow-mpp", version = "0.3.0" }
 mpp = { workspace = true, features = ["server"] }
 serde = { version = "1", features = ["derive"] }
 serde_json.workspace = true
