@@ -21,7 +21,7 @@ jobs:
         toolchain: ["1.93.0", stable]
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
       - name: Install Rust
@@ -80,7 +80,7 @@ jobs:
           repository: inflowpayai/inflow-specs
           ref: ${{ steps.contract.outputs.revision }}
           path: contract
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
       - uses: pnpm/action-setup@v4
