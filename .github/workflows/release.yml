@@ -157,7 +157,7 @@ jobs:
         run: |
           node scripts/release.mjs publish "$RUNNER_TEMP/packages"
           CARGO_TARGET_DIR="$GITHUB_WORKSPACE/target/consumer-check" node scripts/verify-consumer.mjs registry "$RUNNER_TEMP/packages"
-      - uses: actions/attest-build-provenance@v3
+      - uses: actions/attest-build-provenance@v4
         with:
           subject-path: ${{ runner.temp }}/packages/*.crate
       - name: Tag and create release
