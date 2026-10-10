@@ -43,7 +43,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           package_json_file: node-sdk/package.json
       - run: pnpm install --frozen-lockfile && pnpm build
