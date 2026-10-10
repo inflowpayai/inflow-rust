@@ -141,6 +141,11 @@ impl HttpClient {
                 secrets.push(key.clone());
                 headers.insert("x-api-key", credential(key)?);
             }
+            Authentication::ApiKeyProvider(provider) => {
+                let key = provider.api_key().await?;
+                headers.insert("x-api-key", credential(&key)?);
+                secrets.push(key);
+            }
             Authentication::Bearer(provider) => {
                 let token = provider.access_token().await?;
                 credential(&token)?;

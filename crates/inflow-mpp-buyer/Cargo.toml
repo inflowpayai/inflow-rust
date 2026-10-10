@@ -11,8 +11,8 @@ readme = "README.md"
 include = ["src/**", "tests/**", "README.md", "LICENSE"]
 
 [dependencies]
-inflow-core = { path = "../inflow-core", version = "0.3.0" }
-inflow-mpp = { path = "../inflow-mpp", version = "0.3.0" }
+inflow-core = { path = "../inflow-core", version = "0.4.0" }
+inflow-mpp = { path = "../inflow-mpp", version = "0.4.0" }
 serde_json.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true

@@ -118,6 +118,7 @@ impl Seller {
     /// Loads Seller configuration and facilitator capabilities before returning.
     pub async fn new(options: ClientOptions, token: &CancellationToken) -> Result<Self, Error> {
         if !matches!(&options.authentication, Authentication::ApiKey(key) if !key.trim().is_empty())
+            && !matches!(&options.authentication, Authentication::ApiKeyProvider(_))
         {
             return Err(invalid("Seller configuration requires a Seller API key"));
         }

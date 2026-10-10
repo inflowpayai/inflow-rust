@@ -182,6 +182,32 @@ async fn seller(server: &Server) -> Seller {
         .unwrap()
 }
 
+struct SellerKey;
+impl inflow_core::ApiKeyProvider for SellerKey {
+    fn api_key(
+        &self,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<String, inflow_core::Error>> + Send + '_>,
+    > {
+        Box::pin(async { Ok("seller-secret".into()) })
+    }
+}
+
+#[tokio::test]
+async fn seller_accepts_api_key_provider() {
+    let server = fixture();
+    let mut options = options(&server);
+    options.authentication = Authentication::ApiKeyProvider(Arc::new(SellerKey));
+    Seller::new(options, &CancellationToken::new())
+        .await
+        .unwrap();
+    let state = server.0.lock().unwrap();
+    assert_eq!(state.requests.len(), 2);
+    for request in &state.requests {
+        assert_eq!(request.headers["x-api-key"], "seller-secret");
+    }
+}
+
 #[tokio::test(start_paused = true)]
 async fn construction_cache_refresh_and_facilitator_boundary() {
     let server = fixture();

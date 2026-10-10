@@ -19,10 +19,12 @@ fn main() -> Result<(), std::env::VarError> {
 ```
 
 Production is the default environment. The default request timeout is 30 seconds.
-Authentication is one of anonymous, API key, or an asynchronous
-`AccessTokenProvider`. The provider is called before every HTTP attempt, including
-an allowed retry, so it can return a refreshed OAuth access token. It owns token
-refresh; the SDK does not acquire or persist OAuth credentials.
+Authentication is one of `Anonymous`, `ApiKey(String)`, `ApiKeyProvider(Arc<dyn ApiKeyProvider>)`,
+or `Bearer(Arc<dyn AccessTokenProvider>)`. Implement `ApiKeyProvider::api_key` to resolve
+an API key asynchronously. Providers are called before every HTTP attempt, including
+an allowed retry; their results are not cached. Providers must support concurrent calls
+and cancellation when their future is dropped. The SDK does not acquire or persist
+OAuth credentials.
 
 API keys are sent as `X-API-KEY`; access tokens use `Authorization: Bearer`.
 The SDK does not select or restrict account roles locally. If an endpoint requires

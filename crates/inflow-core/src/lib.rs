@@ -6,7 +6,7 @@ mod options;
 mod transport;
 
 pub use error::Error;
-pub use options::{AccessTokenProvider, Authentication, ClientOptions};
+pub use options::{AccessTokenProvider, ApiKeyProvider, Authentication, ClientOptions};
 pub use transport::{Transport, TransportError, TransportRequest, TransportResponse};
 
 #[derive(Clone, Copy, Debug, Default)]

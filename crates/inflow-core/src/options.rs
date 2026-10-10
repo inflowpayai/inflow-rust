@@ -6,11 +6,17 @@ pub trait AccessTokenProvider: Send + Sync {
     fn access_token(&self) -> Pin<Box<dyn Future<Output = Result<String, Error>> + Send + '_>>;
 }
 
+/// Called for each HTTP attempt, including retries. Errors stop the request.
+pub trait ApiKeyProvider: Send + Sync {
+    fn api_key(&self) -> Pin<Box<dyn Future<Output = Result<String, Error>> + Send + '_>>;
+}
+
 #[derive(Clone, Default)]
 pub enum Authentication {
     #[default]
     Anonymous,
     ApiKey(String),
+    ApiKeyProvider(Arc<dyn ApiKeyProvider>),
     Bearer(Arc<dyn AccessTokenProvider>),
 }
 
