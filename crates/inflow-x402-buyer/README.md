@@ -117,6 +117,34 @@ signer and upstream `RpcClientLike`. Register these clients with `HttpBuyer::reg
 Neither chain dependency is enabled by default. Wallet secrets and blockchain
 connections remain owned by the integrator; the SDK does not create or fund wallets.
 
+Your application supplies the signer: the wallet's address and functions that
+produce signatures, using a local private key or a wallet provider. Registration
+attaches a signing client to this `HttpBuyer` in your application. It does not
+register a wallet with InFlow, deposit funds, or send the private key to InFlow.
+Applications using only InFlow-managed payments do not need an external signer.
+Registering one does not force its use when an InFlow-managed offer matches.
+
+### External-wallet selection and spending limits
+
+`HttpBuyer` uses the upstream `FirstMatch` selector by default for external wallets:
+it chooses the first candidate supplied by the registered signing clients. It does
+not impose a built-in token allowlist or a $1 payment cap. The Node, Go, and Python
+foundation clients have those defaults; they are not x402 protocol requirements
+or limits on merchant prices.
+
+To restrict external-wallet payments, pass a `PaymentSelector` to `with_selector`.
+A selector can inspect each candidate's network (`chain_id`), token contract
+(`asset`), and integer atomic amount (`amount`) and return only a candidate your
+application accepts. Token amounts depend on decimals: for six-decimal USDC,
+`25000000` means $25. A limit on one token is not a dollar limit on every token.
+The selector applies only to external-wallet candidates, not to InFlow-managed
+signing. InFlow-managed payments remain subject to the account's server-side
+policies and approvals.
+
+Selection rules do not register a signer or add support for a payment scheme.
+The signer still needs to support the merchant's network, token, and payment
+requirements.
+
 Unlike upstream's synchronous selector, InFlow selection can await a fresh balance
 lookup before signing. Each request has its own selection state; requests do not
 share a mutable selected offer. External signers retain upstream selection behavior.
