@@ -306,6 +306,106 @@ fn required() -> PaymentRequired<OriginalJson> {
         {"scheme":"balance","network":"inflow:1","asset":"USD","amount":"1000000000000000000","payTo":"seller","maxTimeoutSeconds":60,"extra":{"assetName":"USDT"}}
     ]})).unwrap()
 }
+
+#[tokio::test]
+async fn gateway_is_never_managed_or_prepared_regardless_of_timeout() {
+    let (buyer, platform) = setup(vec![]).await;
+    let token = CancellationToken::new();
+    for timeout in [300, 3600, 604900] {
+        let mut value = serde_json::to_value(required()).unwrap();
+        value["accepts"][0]["extra"]["name"] = json!("GatewayWalletBatched");
+        value["accepts"][0]["maxTimeoutSeconds"] = json!(timeout);
+        let mut r: PaymentRequired<OriginalJson> = serde_json::from_value(value).unwrap();
+        assert!(!buyer.supports(&r.accepts[0], &token).await.unwrap());
+        assert_eq!(
+            buyer.select(&r, &token).await.unwrap().unwrap().0.get(),
+            r.accepts[1].0.get()
+        );
+        r.accepts.truncate(1);
+        assert!(buyer.select(&r, &token).await.unwrap().is_none());
+        let error = buyer
+            .prepare(&r.accepts[0], &r, SignOptions::default(), &token)
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(error.code, "X402_ADAPTER_ROUTING_ERROR");
+        assert_eq!(
+            error.message,
+            "Circle Gateway payments are not supported by InFlow."
+        );
+        let error = HttpBuyer::new(Some(buyer.clone()))
+            .unwrap()
+            .payment(&r, SignOptions::default(), WaitOptions::default(), &token)
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(error.code, "X402_NO_MATCH");
+    }
+    assert_eq!(platform.requests.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn gateway_detection_only_matches_exact_extra_name() {
+    let (buyer, platform) = setup(vec![]).await;
+    for extra in [
+        json!(null),
+        json!({}),
+        json!({"name":"USD Coin"}),
+        json!({"name":"gatewaywalletbatched"}),
+        json!({"assetName":"GatewayWalletBatched"}),
+        json!({"name":{"value":"GatewayWalletBatched"}}),
+    ] {
+        let mut value = serde_json::to_value(required()).unwrap();
+        if extra.is_null() {
+            value["accepts"][0].as_object_mut().unwrap().remove("extra");
+        } else {
+            value["accepts"][0]["extra"] = extra;
+        }
+        let r: PaymentRequired<OriginalJson> = serde_json::from_value(value).unwrap();
+        assert!(
+            buyer
+                .supports(&r.accepts[0], &CancellationToken::new())
+                .await
+                .unwrap()
+        );
+    }
+    assert_eq!(platform.requests.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn mixed_gateway_and_managed_offer_creates_only_ordinary_payment() {
+    let (buyer, platform) = setup(vec![
+        (
+            200,
+            json!({"transactionId":"tx","approvalId":"approval","approvalStatus":"APPROVED"}),
+        ),
+        (
+            200,
+            json!({"encodedPayload":"signed", "paymentPayload":{"payload":{"transactionId":"tx"}}}),
+        ),
+    ])
+    .await;
+    let mut value = serde_json::to_value(required()).unwrap();
+    value["accepts"][0]["extra"]["name"] = json!("GatewayWalletBatched");
+    let r: PaymentRequired<OriginalJson> = serde_json::from_value(value.clone()).unwrap();
+    let result = HttpBuyer::new(Some(buyer))
+        .unwrap()
+        .payment(
+            &r,
+            SignOptions::default(),
+            WaitOptions::default(),
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(result.transaction_id.as_deref(), Some("tx"));
+    assert_eq!(serde_json::to_value(&r).unwrap(), value);
+    let requests = platform.requests.lock().unwrap();
+    assert_eq!(requests.len(), 3);
+    let body: Value = serde_json::from_slice(&requests[1].body).unwrap();
+    assert_eq!(body["accept"], value["accepts"][1]);
+}
+
 async fn setup(responses: Vec<(u16, Value)>) -> (Buyer, Arc<Platform>) {
     let platform = Arc::new(Platform {
         responses: Mutex::new(
