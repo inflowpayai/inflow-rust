@@ -1,6 +1,8 @@
 use crate::{
     Buyer, CancellationToken, EncodedPayment, Error, OriginalJson, PaymentRequired, SignOptions,
-    WaitOptions, buyer::cancelled, invalid,
+    WaitOptions,
+    buyer::{cancelled, is_circle_gateway},
+    invalid,
 };
 use inflow_x402::{decode, encode, generate_payment_id, identifier_entry};
 use reqwest::{Request, Response, StatusCode, header::HeaderValue};
@@ -87,6 +89,18 @@ impl HttpBuyer {
         wait: WaitOptions,
         cancellation: &CancellationToken,
     ) -> Result<EncodedPayment, Error> {
+        let mut eligible = required.clone();
+        eligible.accepts.retain(|requirement| {
+            !serde_json::from_str::<Value>(requirement.0.get())
+                .is_ok_and(|value| is_circle_gateway(&value))
+        });
+        if !required.accepts.is_empty() && eligible.accepts.is_empty() {
+            return Err(Error::new(
+                "X402_NO_MATCH",
+                "Circle Gateway payments are not supported by InFlow.",
+            ));
+        }
+        let required = &eligible;
         if let Some(buyer) = &self.buyer
             && let Some(requirement) = buyer.select(required, cancellation).await?
         {

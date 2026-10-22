@@ -93,6 +93,151 @@ fn options() -> (SignOptions, WaitOptions, CancellationToken) {
     )
 }
 
+fn gateway_offer() -> Value {
+    json!({"scheme":"exact","network":"eip155:8453",
+        "asset":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "amount":"100000","payTo":"0x2222222222222222222222222222222222222222",
+        "maxTimeoutSeconds":604900,"extra":{"name":"GatewayWalletBatched","version":"1"}})
+}
+
+#[cfg(feature = "evm")]
+#[tokio::test]
+async fn upstream_evm_receives_only_ordinary_offers() {
+    use alloy_signer_local::PrivateKeySigner;
+    let signer: PrivateKeySigner = "11".repeat(32).parse().unwrap();
+    let http = HttpBuyer::new(None)
+        .unwrap()
+        .register(evm::V2Eip155ExactClient::new(signer));
+    let gateway = gateway_offer();
+    let mut ordinary = gateway.clone();
+    ordinary["extra"] = json!({"name":"USD Coin","version":"2"});
+    ordinary["maxTimeoutSeconds"] = json!(60);
+    for offers in [
+        vec![gateway.clone(), ordinary.clone()],
+        vec![ordinary.clone(), gateway.clone()],
+    ] {
+        let mut r = required(Some(inflow_x402::identifier_declaration()));
+        r.accepts = offers
+            .into_iter()
+            .map(|v| serde_json::from_value(v).unwrap())
+            .collect();
+        let before = serde_json::to_value(&r).unwrap();
+        let (sign, wait, token) = options();
+        let result = http.payment(&r, sign, wait, &token).await.unwrap();
+        assert_eq!(result.payment_payload["accepted"], ordinary);
+        assert!(
+            result.payment_payload["payload"]["signature"]
+                .as_str()
+                .unwrap()
+                .starts_with("0x")
+        );
+        assert!(
+            result.payment_payload["extensions"]["payment-identifier"]["info"]["id"].is_string()
+        );
+        assert_eq!(result.payment_payload["resource"], before["resource"]);
+        assert_eq!(serde_json::to_value(&r).unwrap(), before);
+    }
+    let mut r = required(None);
+    r.accepts = vec![serde_json::from_value(gateway).unwrap()];
+    let (sign, wait, token) = options();
+    assert_eq!(
+        http.payment(&r, sign, wait, &token)
+            .await
+            .err()
+            .unwrap()
+            .code,
+        "X402_NO_MATCH"
+    );
+}
+
+#[tokio::test]
+async fn gateway_only_is_distinct_from_empty_or_other_unsupported_offers() {
+    for (offers, message) in [
+        (
+            vec![gateway_offer(), gateway_offer()],
+            "Circle Gateway payments are not supported by InFlow.",
+        ),
+        (vec![], "no supported payment option"),
+        (
+            vec![gateway_offer(), json!({"scheme":"other"})],
+            "no supported payment option",
+        ),
+    ] {
+        let mut r = required(None);
+        r.accepts = offers
+            .into_iter()
+            .map(|v| serde_json::from_value(v).unwrap())
+            .collect();
+        let before = serde_json::to_value(&r).unwrap();
+        let (sign, wait, token) = options();
+        let error = HttpBuyer::new(None)
+            .unwrap()
+            .payment(&r, sign, wait, &token)
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(error.code, "X402_NO_MATCH");
+        assert_eq!(error.message, message);
+        assert_eq!(serde_json::to_value(&r).unwrap(), before);
+    }
+}
+
+#[tokio::test]
+async fn gateway_402_never_signs_or_retries_the_resource() {
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
+    let mut r = required(None);
+    r.accepts = vec![serde_json::from_value(gateway_offer()).unwrap()];
+    let challenge = inflow_x402::encode(&serde_json::to_value(r).unwrap());
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}/resource", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut bytes = Vec::new();
+        while !bytes.ends_with(b"\r\n\r\n") {
+            bytes.push(stream.read_u8().await.unwrap());
+        }
+        assert!(
+            !String::from_utf8(bytes)
+                .unwrap()
+                .to_lowercase()
+                .contains("payment-signature")
+        );
+        stream.write_all(format!("HTTP/1.1 402 Payment Required\r\nPayment-Required: {challenge}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").as_bytes()).await.unwrap();
+        listener
+    });
+    let calls = Arc::new(AtomicUsize::new(0));
+    let buyer = HttpBuyer::new(None).unwrap().register(Scheme {
+        payload: json!({}),
+        calls: calls.clone(),
+    });
+    let (sign, wait, token) = options();
+    let error = buyer
+        .execute(
+            reqwest::Client::new().get(url).build().unwrap(),
+            sign,
+            wait,
+            &token,
+        )
+        .await
+        .err()
+        .unwrap();
+    assert_eq!(error.code, "X402_NO_MATCH");
+    assert_eq!(
+        error.message,
+        "Circle Gateway payments are not supported by InFlow."
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    let listener = server.await.unwrap();
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(30), listener.accept())
+            .await
+            .is_err()
+    );
+}
+
 struct Extension;
 impl PaymentExtension for Extension {
     fn enrich<'a>(

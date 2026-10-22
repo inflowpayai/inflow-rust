@@ -110,6 +110,12 @@ or platform capability lookup. Register an upstream `X402SchemeClient` with
 wallet types configured, a supported InFlow offer takes priority. Failure of that
 payment does not silently switch to an external wallet and create another payment.
 
+Circle Gateway offers (`extra.name: "GatewayWalletBatched"`) are excluded from
+both managed selection and external-wallet signing. `Buyer::prepare` rejects
+these offers directly with `X402_ADAPTER_ROUTING_ERROR`. If a seller offers only
+Circle Gateway, `HttpBuyer` returns `X402_NO_MATCH`: "Circle Gateway payments are
+not supported by InFlow." Other payment options from the same seller remain eligible.
+
 Enable `features = ["evm"]` to use the re-exported `evm::V2Eip155ExactClient`
 with an upstream `SignerLike` (including Alloy's `PrivateKeySigner`). Enable
 `features = ["solana"]` for `solana::V2SolanaExactClient`, which takes a Solana

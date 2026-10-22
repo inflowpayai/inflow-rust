@@ -178,12 +178,17 @@ async fn read_supported(client: &X402Client, token: &CancellationToken) -> Resul
 }
 
 fn supports(supported: &Value, requirement: &Value) -> bool {
-    requirement["extra"]["assetTransferMethod"] != "permit2"
+    !is_circle_gateway(requirement)
+        && requirement["extra"]["assetTransferMethod"] != "permit2"
         && supported["kinds"].as_array().is_some_and(|kinds| {
             kinds.iter().any(|kind| {
                 kind["scheme"] == requirement["scheme"] && kind["network"] == requirement["network"]
             })
         })
+}
+
+pub(crate) fn is_circle_gateway(requirement: &Value) -> bool {
+    requirement["extra"]["name"] == "GatewayWalletBatched"
 }
 
 pub(crate) fn read(requirement: &OriginalJson) -> Result<Value, Error> {

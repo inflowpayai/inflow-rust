@@ -1,6 +1,6 @@
 use crate::{
     Buyer, CancellationToken, Error, OriginalJson, PaymentRequired,
-    buyer::{cancelled, read},
+    buyer::{cancelled, is_circle_gateway, read},
     invalid,
 };
 use inflow_core::internal::ApprovalCleanup;
@@ -55,6 +55,13 @@ impl Buyer {
         options: SignOptions,
         cancellation: &CancellationToken,
     ) -> Result<Payment, Error> {
+        let accept = read(requirement)?;
+        if is_circle_gateway(&accept) {
+            return Err(Error::new(
+                "X402_ADAPTER_ROUTING_ERROR",
+                "Circle Gateway payments are not supported by InFlow.",
+            ));
+        }
         if !self.supports(requirement, cancellation).await? {
             return Err(Error::new(
                 "X402_ADAPTER_ROUTING_ERROR",
@@ -73,7 +80,7 @@ impl Buyer {
         }
         let mut body = options.transaction_fields;
         body.remove("remotePaymentId");
-        body.insert("accept".into(), read(requirement)?);
+        body.insert("accept".into(), accept);
         body.insert("resource".into(), json!(required.resource));
         body.insert("x402Version".into(), json!(2));
         if body["accept"]["scheme"] == "instrument"
