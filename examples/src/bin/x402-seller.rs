@@ -12,6 +12,9 @@ async fn run() -> Result<()> {
         options,
         "http://127.0.0.1:3001/api/widgets",
         &CancellationToken::new(),
+        std::env::var("X402_PAYMENT_FLOW")
+            .unwrap_or_else(|_| "authorization".into())
+            .parse()?,
     )
     .await?;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3001").await?;

@@ -96,3 +96,12 @@ release is not overwritten.
 Packaged-consumer checks extract the prepared archives and patch only the nine
 unpublished SDK crates into a separate Cargo project. Registry-consumer checks use
 exact crates.io versions without those patches. Neither mode sends payments.
+
+`make package` creates archives and requires the packaged-consumer checks to pass.
+Release preparation uses the same checks and requires a clean checkout. Archive
+creation uses `cargo package --no-verify` because unpublished sibling APIs cannot
+be checked against older crates.io packages. Compilation and execution of the
+extracted archive set are mandatory; a failing consumer fails preparation.
+Each crate is also compiled as the consumer's sole SDK dependency, so features
+enabled by unrelated SDK crates cannot hide a missing dependency configuration.
+Publication retains Cargo's verification against the registry in dependency order.

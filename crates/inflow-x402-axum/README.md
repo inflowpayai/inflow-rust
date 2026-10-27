@@ -23,11 +23,21 @@ let app = Router::new().route("/report",
 # }
 ```
 
-The layer uses `x402-axum` to verify the payment, execute the handler, and settle
+By default the layer uses `x402-axum` to verify the payment, execute the handler, and settle
 after a successful handler response. A handler returning a 4xx or 5xx response
 does not trigger settlement. A settlement failure does not return the handler's
 successful response. Keep irreversible fulfillment out of the handler unless the
 application separately reconciles payment outcomes.
+
+Set `OfferOptions::payment_flow` to `PaymentFlow::Upfront` before building the
+route to settle before executing the handler. Rejected, pending, or uncertain
+settlements do not execute it. After successful settlement, normal 4xx and 5xx
+handler responses retain the successful `Payment-Response` receipt: they do not
+refund the buyer or initiate another settlement. Panic recovery, if needed, must
+be inside the payment layer so that it returns a response through that layer.
+The layer does not deduplicate application fulfillment on repeated requests.
+See the Seller's [payment flow guidance](https://github.com/inflowpayai/inflow-rust/tree/main/crates/inflow-x402-seller#choose-when-payment-settles)
+for supported offers and the reconciliation tradeoff.
 
 Payment challenges and HTTP 412 responses use `Cache-Control: no-store`.
 Responses carrying a payment receipt add `private` unless it is already present,

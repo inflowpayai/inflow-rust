@@ -84,7 +84,6 @@ jobs:
           node scripts/conformance.mjs --contract-root ../contract --output-dir "$RUNNER_TEMP/reports"
           node scripts/interoperability.mjs ../node-sdk "$RUNNER_TEMP/reports/interoperability.json" ../contract
           node scripts/release.mjs prepare "$RUNNER_TEMP/packages"
-          CARGO_TARGET_DIR="$GITHUB_WORKSPACE/sdk/target/consumer-check" node scripts/verify-consumer.mjs packages "$RUNNER_TEMP/packages"
       - name: Read version
         id: version
         run: echo "version=$(jq -r .version "$RUNNER_TEMP/packages/manifest.json")" >> "$GITHUB_OUTPUT"

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
-import { crates, loadManifest, run } from "./release.mjs";
+import { crates, loadManifest, run, root } from "./release.mjs";
 
 const [mode, path] = process.argv.slice(2);
 assert.ok(
@@ -11,10 +11,11 @@ assert.ok(
 );
 const directory = resolve(path);
 const manifest = loadManifest(directory);
+process.env.RUSTUP_TOOLCHAIN = run("rustup", ["show", "active-toolchain"]).split(/\s/)[0];
 const consumer = mkdtempSync(join(tmpdir(), "inflow-rust-consumer-"));
 const target = process.env.CARGO_TARGET_DIR
   ? resolve(process.env.CARGO_TARGET_DIR)
-  : join(consumer, "target");
+  : join(root, "target", "consumer-check");
 try {
   let patches = "";
   if (mode === "packages") {
@@ -63,7 +64,10 @@ fn main() {
     let _ = [inflow_mpp_seller::Method::Stripe, inflow_mpp_seller::Method::Card];
     let _ = std::mem::size_of::<inflow_mpp_seller::Seller>();
     let _ = std::mem::size_of::<inflow_x402_buyer::HttpBuyer>();
-    let _ = inflow_x402_seller::OfferOptions::new("0.01 USDC");
+    let mut offers = inflow_x402_seller::OfferOptions::new("0.01 USDC");
+    assert_eq!(offers.payment_flow, inflow_x402_seller::PaymentFlow::Authorization);
+    offers.payment_flow = inflow_x402_seller::PaymentFlow::Upfront;
+    assert_eq!(offers.payment_flow, "upfront".parse::<inflow_x402_seller::PaymentFlow>().unwrap());
     let _ = std::mem::size_of::<inflow_x402_axum::PaymentLayer>();
     #[cfg(feature="evm")] { let _ = inflow_x402_buyer::eip7702::DELEGATION; }
     #[cfg(feature="solana")] { use inflow_x402_buyer::solana as _; }
@@ -80,6 +84,17 @@ fn main() {
     run("cargo", ["run", "--locked", "--target-dir", target, ...features], consumer);
   }
   console.log(`Consumer passed: ${mode}, default/EVM/Solana/combined features`);
+  const standalone = join(consumer, "standalone");
+  mkdirSync(join(standalone, "src"), { recursive: true });
+  writeFileSync(join(standalone, "src/lib.rs"), "");
+  for (const name of crates) {
+    writeFileSync(
+      join(standalone, "Cargo.toml"),
+      `[package]\nname="inflow-standalone-consumer"\nversion="0.1.0"\nedition="2024"\n[dependencies]\n${name}="=${manifest.version}"\n${patches}\n`,
+    );
+    run("cargo", ["build", "--target-dir", target], standalone);
+  }
+  console.log(`Consumer passed: ${mode}, every crate as the sole SDK dependency`);
   const tap = join(consumer, "tap-only");
   mkdirSync(join(tap, "src"), { recursive: true });
   const tapPatch = mode === "packages"

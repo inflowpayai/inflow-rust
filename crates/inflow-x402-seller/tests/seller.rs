@@ -52,6 +52,112 @@ fn fixture() -> Server {
 }
 
 #[tokio::test]
+async fn upfront_offer_configuration_preserves_default_and_metadata() {
+    let server = fixture();
+    let seller = seller(&server).await;
+    let token = CancellationToken::new();
+    let before = server.0.lock().unwrap().config.clone();
+    let mut options = OfferOptions::new("1 USDC");
+    assert_eq!(options.payment_flow, PaymentFlow::Authorization);
+    let default = seller.route(&options, &token).await.unwrap();
+    assert_eq!(default.payment_flow().unwrap(), PaymentFlow::Authorization);
+    assert!(
+        default.accepts.iter().all(|offer| offer
+            .extra
+            .as_ref()
+            .unwrap()
+            .get("paymentFlow")
+            .is_none())
+    );
+    options.payment_flow = PaymentFlow::Upfront;
+    for permit2 in [false, true] {
+        options.permit2 = permit2;
+        let route = seller.route(&options, &token).await.unwrap();
+        assert_eq!(route.payment_flow().unwrap(), PaymentFlow::Upfront);
+        assert!(
+            route
+                .accepts
+                .iter()
+                .all(|offer| offer.extra.as_ref().unwrap()["paymentFlow"] == "upfront")
+        );
+        assert!(
+            route
+                .accepts
+                .iter()
+                .any(|offer| offer.extra.as_ref().unwrap()["future"] == 1)
+        );
+    }
+    assert_eq!(server.0.lock().unwrap().config, before);
+    let mut unsupported = before;
+    unsupported["paymentMethods"][0]["scheme"] = json!("future");
+    server.0.lock().unwrap().config = unsupported;
+    seller.refresh_config(&token).await.unwrap();
+    assert!(seller.offers(&options, &token).await.is_err());
+}
+
+#[test]
+fn route_flow_accepts_only_supported_uniform_offers() {
+    assert_eq!(
+        "authorization".parse::<PaymentFlow>().unwrap(),
+        PaymentFlow::Authorization
+    );
+    assert_eq!(
+        "upfront".parse::<PaymentFlow>().unwrap(),
+        PaymentFlow::Upfront
+    );
+    assert!("future".parse::<PaymentFlow>().is_err());
+    assert_eq!(
+        Route {
+            accepts: vec![],
+            extensions: Default::default()
+        }
+        .payment_flow()
+        .unwrap(),
+        PaymentFlow::Authorization
+    );
+    for (scheme, network, method, allowed) in [
+        ("exact", "eip155:8453", Value::Null, true),
+        ("exact", "eip155:8453", json!("default"), true),
+        ("exact", "eip155:8453", json!("eip3009"), true),
+        ("exact", "eip155:8453", json!("permit2"), true),
+        ("exact", "eip155:8453", json!("future"), false),
+        ("exact", "solana:mainnet", Value::Null, true),
+        ("exact", "solana:mainnet", json!("solana"), true),
+        ("exact", "solana:mainnet", json!("permit2"), false),
+        ("exact", "future:1", Value::Null, false),
+        ("balance", "inflow:1", Value::Null, true),
+        ("instrument", "inflow:1", json!("default"), true),
+        ("instrument", "inflow:1", json!("future"), false),
+        ("balance", "inflow:2", Value::Null, false),
+        ("upto", "eip155:8453", Value::Null, false),
+        ("future", "inflow:1", Value::Null, false),
+    ] {
+        let offer: PaymentRequirements = serde_json::from_value(json!({"scheme":scheme,"network":network,"amount":"100","asset":"USDC","payTo":"merchant","maxTimeoutSeconds":300,"extra":{"paymentFlow":"upfront","assetTransferMethod":method}})).unwrap();
+        let mut route = Route {
+            accepts: vec![offer],
+            extensions: Default::default(),
+        };
+        assert_eq!(
+            route.payment_flow().is_ok(),
+            allowed,
+            "{scheme} {network} {method}"
+        );
+        for invalid in [json!(true), json!(null), json!("future")] {
+            route.accepts[0].extra.as_mut().unwrap()["paymentFlow"] = invalid;
+            assert!(route.payment_flow().is_err());
+        }
+    }
+    let offer: PaymentRequirements = serde_json::from_value(json!({"scheme":"balance","network":"inflow:1","amount":"100","asset":"USDC","payTo":"merchant","maxTimeoutSeconds":300})).unwrap();
+    let mut route = Route {
+        accepts: vec![offer.clone(), offer],
+        extensions: Default::default(),
+    };
+    assert_eq!(route.payment_flow().unwrap(), PaymentFlow::Authorization);
+    route.accepts[1].extra = Some(json!({"paymentFlow":"upfront"}));
+    assert!(route.payment_flow().is_err());
+}
+
+#[tokio::test]
 async fn shared_seller_offer_and_sponsorship_vectors() {
     let cases: Vec<Value> = serde_json::from_str(include_str!("data/offers.json")).unwrap();
     assert_eq!(cases.len(), 19);

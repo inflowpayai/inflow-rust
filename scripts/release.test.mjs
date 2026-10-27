@@ -1,15 +1,37 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   crates,
   validatePackages,
   validatePublished,
   loadManifest,
   checksum,
+  verifyPreparedPackages,
 } from "./release.mjs";
+
+test("preparation requires archive consumer success and invalidates a failed manifest", () => {
+  const directory = mkdtempSync(join(tmpdir(), "inflow-release-test-"));
+  const manifest = join(directory, "manifest.json");
+  try {
+    writeFileSync(manifest, "{}");
+    verifyPreparedPackages(directory, (program, args) => {
+      assert.equal(program, process.execPath);
+      assert.equal(args[0], fileURLToPath(new URL("./verify-consumer.mjs", import.meta.url)));
+      assert.deepEqual(args.slice(1), ["packages", directory]);
+    });
+    assert.ok(existsSync(manifest));
+    const failure = new Error("Consumer compilation failed");
+    assert.throws(() => verifyPreparedPackages(directory, () => { throw failure; }),
+      (error) => error === failure);
+    assert.equal(existsSync(manifest), false);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 const metadata = () => ({
   workspace_members: crates,

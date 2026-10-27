@@ -19,7 +19,7 @@ lint:
 	cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
 package:
-	cargo package --workspace --exclude inflow-examples --exclude inflow-conformance --allow-dirty --locked
+	node scripts/release.mjs check
 
 test:
 	cargo test --workspace --all-features --locked

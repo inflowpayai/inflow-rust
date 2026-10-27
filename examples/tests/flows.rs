@@ -107,7 +107,7 @@ impl Transport for Platform {
                     json!({"isValid":self.mode != "platform-failure","payer":"buyer","invalidReason":"declined"})
                 }
                 "/v1/x402/settle" => {
-                    json!({"success":self.mode != "settlement-failure","transaction":"transaction","network":"inflow:1","errorReason":"declined"})
+                    json!({"success":!matches!(self.mode, "settlement-failure" | "platform-failure"),"transaction":"transaction","network":"inflow:1","errorReason":"declined"})
                 }
                 _ => panic!("unexpected platform request: {path}"),
             };
@@ -201,7 +201,11 @@ async fn card_example_buyer_pays_example_seller_without_platform_key_leakage() {
 #[tokio::test]
 async fn both_buyers_pay_the_actual_example_sellers_and_preserve_failures() {
     tokio::time::timeout(std::time::Duration::from_secs(20), async {
-        for mpp in [true, false] {
+        for (mpp, flow) in [
+            (true, inflow_x402_seller::PaymentFlow::Authorization),
+            (false, inflow_x402_seller::PaymentFlow::Authorization),
+            (false, inflow_x402_seller::PaymentFlow::Upfront),
+        ] {
             for mode in [
                 "success",
                 "platform-failure",
@@ -223,6 +227,7 @@ async fn both_buyers_pay_the_actual_example_sellers_and_preserve_failures() {
                         options.clone(),
                         "http://127.0.0.1:3001/api/widgets",
                         &token,
+                        flow,
                     )
                     .await
                     .unwrap()
@@ -255,6 +260,16 @@ async fn both_buyers_pay_the_actual_example_sellers_and_preserve_failures() {
                 if mode == "success" {
                     assert!(output.contains("Receipt:"));
                     assert!(output.contains("widgets"));
+                    if !mpp {
+                        assert_eq!(
+                            platform.accepted.lock().unwrap()["extra"]["paymentFlow"],
+                            if flow == inflow_x402_seller::PaymentFlow::Upfront {
+                                json!("upfront")
+                            } else {
+                                Value::Null
+                            }
+                        );
+                    }
                 }
                 let calls = platform.calls.lock().unwrap();
                 assert_eq!(
@@ -269,7 +284,10 @@ async fn both_buyers_pay_the_actual_example_sellers_and_preserve_failures() {
                         .count(),
                     1
                 );
-                if mode == "platform-failure" || mode == "pending" {
+                if mode == "pending"
+                    || (mode == "platform-failure"
+                        && flow == inflow_x402_seller::PaymentFlow::Authorization)
+                {
                     assert!(
                         !calls
                             .iter()
@@ -281,6 +299,166 @@ async fn both_buyers_pay_the_actual_example_sellers_and_preserve_failures() {
     })
     .await
     .unwrap();
+}
+
+#[tokio::test]
+async fn combined_application_route_offers_mpp_and_upfront_x402_as_alternatives() {
+    use tower::ServiceExt;
+    for use_mpp in [true, false] {
+        let (options, platform) = setup("success");
+        let token = CancellationToken::new();
+        let mpp = mpp_seller::router(
+            options.clone(),
+            "test-secret-at-least-32-characters".into(),
+            &token,
+        )
+        .await
+        .unwrap();
+        let x402 = x402_seller::router(
+            options.clone(),
+            "http://127.0.0.1:3001/api/widgets",
+            &token,
+            inflow_x402_seller::PaymentFlow::Upfront,
+        )
+        .await
+        .unwrap();
+        // Application routing chooses one protocol; this is not a combined SDK middleware.
+        let app = Router::new().route(
+            "/api/widgets",
+            get(move |headers: HeaderMap| {
+                let mpp = mpp.clone();
+                let x402 = x402.clone();
+                async move {
+                    let mut request = http::Request::builder()
+                        .uri("/api/widgets")
+                        .body(Body::empty())
+                        .unwrap();
+                    *request.headers_mut() = headers.clone();
+                    if headers.contains_key("authorization") {
+                        return mpp.oneshot(request).await.unwrap();
+                    }
+                    if headers.contains_key("payment-signature") {
+                        return x402.oneshot(request).await.unwrap();
+                    }
+                    let mr = mpp.oneshot(request).await.unwrap();
+                    let mut xr = x402
+                        .oneshot(
+                            http::Request::builder()
+                                .uri("/api/widgets")
+                                .body(Body::empty())
+                                .unwrap(),
+                        )
+                        .await
+                        .unwrap();
+                    assert_eq!(mr.status(), 402);
+                    assert_eq!(xr.status(), 402);
+                    xr.headers_mut()
+                        .insert("www-authenticate", mr.headers()["www-authenticate"].clone());
+                    xr
+                }
+            }),
+        );
+        let (url, server) = serve(app).await;
+        let mut out = Vec::new();
+        if use_mpp {
+            mpp_buyer::run(options, url, &token, &mut out)
+                .await
+                .unwrap();
+        } else {
+            x402_buyer::run(options, url, &token, &mut out)
+                .await
+                .unwrap();
+        }
+        server.abort();
+        assert!(String::from_utf8(out).unwrap().contains("widgets"));
+        let calls = platform.calls.lock().unwrap();
+        assert_eq!(
+            calls
+                .iter()
+                .filter(|r| r.url.ends_with("/broadcast"))
+                .count(),
+            usize::from(use_mpp)
+        );
+        assert_eq!(
+            calls.iter().filter(|r| r.url.ends_with("/settle")).count(),
+            usize::from(!use_mpp)
+        );
+        assert!(!calls.iter().any(|r| r.url.ends_with("/verify")));
+    }
+}
+
+#[tokio::test]
+async fn upfront_handler_error_does_not_create_a_second_buyer_payment() {
+    for status in [402, 500] {
+        let (options, platform) = setup("success");
+        let token = CancellationToken::new();
+        let seller = inflow_x402_seller::Seller::new(options.clone(), &token)
+            .await
+            .unwrap();
+        let mut offers = inflow_x402_seller::OfferOptions::new("0.01 USDC");
+        offers.payment_flow = inflow_x402_seller::PaymentFlow::Upfront;
+        let route = seller.route(&offers, &token).await.unwrap();
+        let layer = inflow_x402_axum::payment_layer(
+            seller.facilitator(),
+            route,
+            "http://127.0.0.1:3001/api/widgets",
+        )
+        .unwrap();
+        let app =
+            Router::new().route(
+                "/api/widgets",
+                get(move || async move {
+                    (StatusCode::from_u16(status).unwrap(), "fulfillment failed")
+                })
+                .route_layer(layer),
+            );
+        let (url, server) = serve(app).await;
+        let buyer = inflow_x402_buyer::HttpBuyer::new(Some(
+            inflow_x402_buyer::Buyer::new(
+                inflow_x402_buyer::BuyerOptions {
+                    client: options,
+                    ..Default::default()
+                },
+                &token,
+            )
+            .await
+            .unwrap(),
+        ))
+        .unwrap();
+        let response = buyer
+            .execute(
+                reqwest::Client::new().get(url).build().unwrap(),
+                Default::default(),
+                Default::default(),
+                &token,
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status().as_u16(), status);
+        assert_eq!(
+            inflow_x402::decode(response.headers()["payment-response"].to_str().unwrap()).unwrap()
+                ["success"],
+            true
+        );
+        server.abort();
+        let calls = platform.calls.lock().unwrap();
+        assert_eq!(
+            calls
+                .iter()
+                .filter(|r| r.url.ends_with("/transactions/x402"))
+                .count(),
+            1
+        );
+        assert_eq!(
+            calls.iter().filter(|r| r.url.ends_with("/settle")).count(),
+            1
+        );
+        assert!(
+            !calls
+                .iter()
+                .any(|r| r.url.ends_with("/verify") || r.url.ends_with("/cancel"))
+        );
+    }
 }
 
 #[tokio::test]
@@ -331,6 +509,7 @@ async fn seller_free_wrong_method_and_malformed_credential_paths() {
                 options,
                 "http://127.0.0.1:3001/api/widgets",
                 &CancellationToken::new(),
+                inflow_x402_seller::PaymentFlow::Authorization,
             )
             .await
             .unwrap()
@@ -395,9 +574,14 @@ async fn paid_redirect_repeated_challenge_and_missing_receipt_never_start_anothe
                 .await
                 .unwrap()
             } else {
-                x402_seller::router(options.clone(), "http://127.0.0.1:3001/api/widgets", &token)
-                    .await
-                    .unwrap()
+                x402_seller::router(
+                    options.clone(),
+                    "http://127.0.0.1:3001/api/widgets",
+                    &token,
+                    inflow_x402_seller::PaymentFlow::Authorization,
+                )
+                .await
+                .unwrap()
             };
             let target = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
             let location = format!("http://{}/never", target.local_addr().unwrap());

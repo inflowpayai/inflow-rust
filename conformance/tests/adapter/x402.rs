@@ -103,6 +103,12 @@ pub async fn execute(op: &str, input: &Value) -> Result<Value, Error> {
         options.schemes = source.get("schemes").cloned().map(read).transpose()?;
         options.networks = source.get("networks").cloned().map(read).transpose()?;
         options.permit2 = source["assetTransferMethod"] == "permit2";
+        if let Some(flow) = source.get("paymentFlow") {
+            options.payment_flow = flow
+                .as_str()
+                .ok_or_else(|| Error::new("INVALID_INPUT", "paymentFlow must be a string"))?
+                .parse()?;
+        }
         let (accepts, extensions) = if op == "x402.seller.route" {
             let route = seller.route(&options, &token).await?;
             (route.accepts, route.extensions)
