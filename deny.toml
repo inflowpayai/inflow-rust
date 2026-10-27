@@ -1,6 +1,9 @@
 [advisories]
 yanked = "deny"
-ignore = [{ id = "RUSTSEC-2024-0436", reason = "x402-types depends on alloy-primitives, which requires paste. This advisory reports unmaintained compile-time macros, not a known vulnerability; no patched version is available." }]
+ignore = [
+    { id = "RUSTSEC-2024-0436", reason = "x402-types depends on alloy-primitives, which requires paste. This advisory reports unmaintained compile-time macros, not a known vulnerability; no patched version is available." },
+    { id = "RUSTSEC-2026-0387", reason = "Retain the upstream Alloy cryptography dependencies pending a compatible fix: https://github.com/alloy-rs/alloy/issues/4445." },
+]
 
 [bans]
 multiple-versions = "warn"

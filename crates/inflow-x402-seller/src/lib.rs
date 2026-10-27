@@ -8,7 +8,7 @@ pub use inflow_core::{Authentication, ClientOptions, Environment, Error};
 pub use inflow_x402::{
     PaymentRequirements, SettleRequest, SettleResponse, VerifyRequest, VerifyResponse,
 };
-pub use offers::{OfferOptions, Price, Route};
+pub use offers::{OfferOptions, PaymentFlow, Price, Route};
 pub use tokio_util::sync::CancellationToken;
 pub use x402_types::proto::SupportedResponse;
 

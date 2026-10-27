@@ -150,6 +150,32 @@ async fn upstream_evm_receives_only_ordinary_offers() {
     );
 }
 
+#[cfg(feature = "evm")]
+#[tokio::test]
+async fn real_upstream_evm_signer_preserves_upfront_requirements() {
+    use alloy_signer_local::PrivateKeySigner;
+    let signer: PrivateKeySigner = "11".repeat(32).parse().unwrap();
+    let http = HttpBuyer::new(None)
+        .unwrap()
+        .register(evm::V2Eip155ExactClient::new(signer));
+    let mut offer = gateway_offer();
+    offer["extra"] = json!({"name":"USD Coin","version":"2","paymentFlow":"upfront"});
+    offer["maxTimeoutSeconds"] = json!(60);
+    let mut required = required(Some(inflow_x402::identifier_declaration()));
+    required.accepts = vec![serde_json::from_value(offer.clone()).unwrap()];
+    let before = serde_json::to_value(&required).unwrap();
+    let (sign, wait, token) = options();
+    let result = http.payment(&required, sign, wait, &token).await.unwrap();
+    assert_eq!(result.payment_payload["accepted"], offer);
+    assert!(
+        result.payment_payload["payload"]["signature"]
+            .as_str()
+            .unwrap()
+            .starts_with("0x")
+    );
+    assert_eq!(serde_json::to_value(&required).unwrap(), before);
+}
+
 #[tokio::test]
 async fn gateway_only_is_distinct_from_empty_or_other_unsupported_offers() {
     for (offers, message) in [

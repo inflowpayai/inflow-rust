@@ -66,6 +66,46 @@ data to the facilitator; it does not sign wallet authorizations itself.
 
 ## Verification and settlement
 
+### Choose when payment settles
+
+`OfferOptions::new` uses `PaymentFlow::Authorization`: the Axum adapter verifies
+payment, runs the handler, and settles only after a successful response. Use it
+when you want handler errors to avoid charging the buyer. Successful verification
+does not guarantee settlement, so the handler must not assume it has been paid.
+
+Choose `PaymentFlow::Upfront` explicitly when the handler must not run until
+settlement succeeds, for example before performing expensive computation:
+
+```no_run
+use inflow_x402_seller::{CancellationToken, OfferOptions, PaymentFlow, Seller};
+# async fn example(seller: Seller) -> Result<(), Box<dyn std::error::Error>> {
+let mut options = OfferOptions::new("0.01 USDC");
+options.payment_flow = PaymentFlow::Upfront;
+let route = seller.route(&options, &CancellationToken::new()).await?;
+# let _ = route;
+# Ok(())
+# }
+```
+
+Upfront supports fixed `exact` EVM payments using EIP-3009 or Permit2, fixed
+`exact` Solana payments, and `balance` or `instrument` on `inflow:1`. It rejects
+metered `upto`, unknown transfer methods, and other schemes or networks. It does
+not enable instrument offers implicitly; their separate opt-in still applies.
+The accepted requirements advertise `extra.paymentFlow: "upfront"`. Buyers retain
+that value when creating and forwarding payment; changing it invalidates the
+match against the seller's offer. Authorization omits this optional wire field.
+
+An upfront handler error does not undo settlement or automatically refund the
+buyer. The Axum adapter retains the successful receipt on normal error responses.
+Use it to reconcile the charge and recover fulfillment instead of requesting a
+new payment. The facilitator deduplicates payment, not application work: repeated
+requests can run the handler again. Persist your own fulfillment result keyed to
+the payment or order before performing irreversible work.
+
+All offers on one Axum route must use the same payment flow because upstream
+selects execution order for the entire route. A custom route mixing flows is
+rejected. This option applies only to x402; it does not change MPP.
+
 `seller.facilitator()` returns a clone sharing its capability cache and implements
 the upstream `x402_types::facilitator::Facilitator` trait. The inherent `verify`
 and `settle` methods accept a cancellation token. Use

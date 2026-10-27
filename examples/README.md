@@ -135,6 +135,19 @@ export INFLOW_API_KEY='your-sandbox-seller-key'
 cargo run --locked -p inflow-examples --bin x402-seller
 ```
 
+The seller defaults to authorization: verify, run the handler, then settle a
+successful response. To charge before the handler runs, start it with:
+
+```sh
+X402_PAYMENT_FLOW=upfront cargo run --locked -p inflow-examples --bin x402-seller
+```
+
+Use upfront for work that must not start before payment succeeds. If that work
+fails after payment, the buyer is still charged and receives a successful payment
+receipt with the error response; your application must recover fulfillment or
+arrange a refund. Repeating a payment does not deduplicate application work.
+The example returns a read-only response and does not implement durable fulfillment.
+
 The Seller listens on `127.0.0.1:3001` and constructs **0.01 USDC** offers from its
 configured methods and wallets. It stops at startup if no protected route can be
 constructed from that configuration.

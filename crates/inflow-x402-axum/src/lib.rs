@@ -5,7 +5,7 @@ use http::{
     StatusCode,
     header::{CACHE_CONTROL, HeaderValue},
 };
-use inflow_x402_seller::{Error, Facilitator, Route};
+use inflow_x402_seller::{Error, Facilitator, PaymentFlow, Route};
 use serde::Serialize;
 use serde_json::Value;
 use tower::{Layer, util::MapResponse};
@@ -88,12 +88,13 @@ fn payment_cache_control(mut response: Response) -> Response {
     response
 }
 
-/// Uses upstream verification, handler execution and settlement, in that order.
+/// Uses the upstream execution order selected by the route's advertised payment flow.
 pub fn payment_layer(
     facilitator: Facilitator,
     route: Route,
     resource: &str,
 ) -> Result<PaymentLayer, Error> {
+    let flow = route.payment_flow()?;
     let resource = url::Url::parse(resource)
         .map_err(|_| invalid("resource must be an absolute HTTP or HTTPS URL"))?;
     if !matches!(resource.scheme(), "http" | "https")
@@ -118,9 +119,12 @@ pub fn payment_layer(
     let first = offers
         .next()
         .ok_or_else(|| invalid("protected route requires at least one payment offer"))?;
-    let mut layer = X402Middleware::from_facilitator(facilitator)
-        .with_price_tag(first)
-        .with_resource(resource);
+    let middleware = X402Middleware::from_facilitator(facilitator);
+    let middleware = match flow {
+        PaymentFlow::Authorization => middleware,
+        PaymentFlow::Upfront => middleware.settle_before_execution(),
+    };
+    let mut layer = middleware.with_price_tag(first).with_resource(resource);
     for offer in offers {
         layer = layer.with_price_tag(offer);
     }

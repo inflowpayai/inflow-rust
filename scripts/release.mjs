@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { readFileSync, copyFileSync, mkdirSync, writeFileSync } from "node:fs";
+import {
+  readFileSync, copyFileSync, mkdirSync, writeFileSync, mkdtempSync, rmSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -55,12 +58,14 @@ export function validatePackages(metadata) {
   return version;
 }
 
-export function inspect() {
-  assert.equal(
-    run("git", ["status", "--porcelain"]),
-    "",
-    "Release requires a clean checkout",
-  );
+export function inspect({ allowDirty = false } = {}) {
+  if (!allowDirty) {
+    assert.equal(
+      run("git", ["status", "--porcelain"]),
+      "",
+      "Release requires a clean checkout",
+    );
+  }
   const metadata = JSON.parse(
     run("cargo", ["metadata", "--no-deps", "--locked", "--format-version=1"]),
   );
@@ -116,42 +121,65 @@ export function validatePublished(remote, expected) {
   );
 }
 
+export function verifyPreparedPackages(directory, execute = run) {
+  try {
+    execute(process.execPath, [
+      join(root, "scripts/verify-consumer.mjs"), "packages", directory,
+    ]);
+  } catch (error) {
+    rmSync(join(directory, "manifest.json"), { force: true });
+    throw error;
+  }
+}
+
 async function main() {
   const [operation, path] = process.argv.slice(2);
   assert.ok(
-    ["prepare", "publish"].includes(operation) && path,
-    "Usage: node scripts/release.mjs prepare|publish DIRECTORY",
+    (operation === "check" && !path) ||
+      (["prepare", "publish"].includes(operation) && path),
+    "Usage: node scripts/release.mjs check | prepare|publish DIRECTORY",
   );
-  const directory = resolve(path);
-  const state = inspect();
-  if (operation === "prepare") {
-    mkdirSync(directory);
-    run("cargo", [
-      "package",
-      "--workspace",
-      "--exclude",
-      "inflow-examples",
-      "--exclude",
-      "inflow-conformance",
-      "--locked",
-    ]);
-    const manifest = {
-      version: state.version,
-      commit: state.commit,
-      crates: crates.map((name) => {
-        const file = `${name}-${state.version}.crate`;
-        // Cargo uploads tmp-crate; its copied package artifact can retain trailing bytes on repeated builds.
-        const source = join(state.target, "package", "tmp-crate", file);
-        copyFileSync(source, join(directory, file));
-        return { name, file, sha256: checksum(source) };
-      }),
-    };
-    writeFileSync(
-      join(directory, "manifest.json"),
-      JSON.stringify(manifest, null, 2) + "\n",
-      { flag: "wx" },
-    );
-    console.log(`Prepared ${crates.length} crates at ${directory}`);
+  const state = inspect({ allowDirty: operation === "check" });
+  const temporary = operation === "check"
+    ? mkdtempSync(join(tmpdir(), "inflow-package-check-"))
+    : null;
+  const directory = temporary ?? resolve(path);
+  if (operation === "prepare" || operation === "check") {
+    try {
+      if (!temporary) mkdirSync(directory);
+      run("cargo", [
+        "package",
+        "--workspace",
+        "--exclude",
+        "inflow-examples",
+        "--exclude",
+        "inflow-conformance",
+        "--locked",
+        // Unpublished sibling APIs must be compiled together by the archive consumer below.
+        "--no-verify",
+        ...(temporary ? ["--allow-dirty"] : []),
+      ]);
+      const manifest = {
+        version: state.version,
+        commit: state.commit,
+        crates: crates.map((name) => {
+          const file = `${name}-${state.version}.crate`;
+          // Cargo uploads tmp-crate; its copied package artifact can retain trailing bytes on repeated builds.
+          const source = join(state.target, "package", "tmp-crate", file);
+          copyFileSync(source, join(directory, file));
+          return { name, file, sha256: checksum(source) };
+        }),
+      };
+      writeFileSync(
+        join(directory, "manifest.json"),
+        JSON.stringify(manifest, null, 2) + "\n",
+        { flag: "wx" },
+      );
+      verifyPreparedPackages(directory);
+      console.log(`Prepared ${crates.length} crates at ${directory}`);
+    } finally {
+      if (temporary) rmSync(temporary, { recursive: true, force: true });
+    }
     return;
   }
   const manifest = loadManifest(directory);

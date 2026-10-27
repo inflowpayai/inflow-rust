@@ -4,6 +4,25 @@ use serde_json::{Map, Value, json};
 
 const PROXY: &str = "0x402085c248EeA27D92E8b30b2C58ed07f9E20001";
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum PaymentFlow {
+    #[default]
+    Authorization,
+    Upfront,
+}
+
+impl std::str::FromStr for PaymentFlow {
+    type Err = Error;
+
+    fn from_str(value: &str) -> Result<Self, Error> {
+        match value {
+            "authorization" => Ok(Self::Authorization),
+            "upfront" => Ok(Self::Upfront),
+            _ => Err(invalid("payment flow must be authorization or upfront")),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Price {
     pub amount: String,
@@ -27,6 +46,7 @@ pub struct OfferOptions {
     pub networks: Option<Vec<String>>,
     /// Uses Permit2 for compatible on-chain assets; balance offers are unaffected.
     pub permit2: bool,
+    pub payment_flow: PaymentFlow,
 }
 
 impl OfferOptions {
@@ -37,6 +57,7 @@ impl OfferOptions {
             schemes: None,
             networks: None,
             permit2: false,
+            payment_flow: PaymentFlow::Authorization,
         }
     }
 
@@ -55,6 +76,44 @@ impl OfferOptions {
 pub struct Route {
     pub accepts: Vec<PaymentRequirements>,
     pub extensions: Map<String, Value>,
+}
+
+impl Route {
+    /// Validates that all offers use one supported execution flow.
+    pub fn payment_flow(&self) -> Result<PaymentFlow, Error> {
+        let mut selected = None;
+        for offer in &self.accepts {
+            let flow = match extra(offer).get("paymentFlow") {
+                None => PaymentFlow::Authorization,
+                Some(Value::String(value)) => value.parse()?,
+                _ => return Err(invalid("paymentFlow must be a string")),
+            };
+            if flow == PaymentFlow::Upfront && !supports_upfront(offer) {
+                return Err(invalid("upfront is unsupported for this payment offer"));
+            }
+            if selected.is_some_and(|previous| previous != flow) {
+                return Err(invalid(
+                    "a route cannot mix authorization and upfront offers",
+                ));
+            }
+            selected = Some(flow);
+        }
+        Ok(selected.unwrap_or_default())
+    }
+}
+
+fn supports_upfront(offer: &PaymentRequirements) -> bool {
+    let method = extra(offer).get("assetTransferMethod");
+    let transfer = method.unwrap_or(&Value::Null);
+    let default = transfer.is_null() || transfer == "default";
+    let network = offer.network.to_string();
+    if offer.scheme == "exact" {
+        if network.starts_with("eip155:") {
+            return default || transfer == "eip3009" || transfer == "permit2";
+        }
+        return network.starts_with("solana:") && (default || transfer == "solana");
+    }
+    network == "inflow:1" && matches!(offer.scheme.as_str(), "balance" | "instrument") && default
 }
 
 #[derive(Deserialize)]
@@ -294,6 +353,15 @@ fn build(value: Value, options: &OfferOptions) -> Result<Vec<PaymentRequirements
                 options.max_timeout_seconds,
                 extra,
             )?);
+        }
+    }
+    if options.payment_flow == PaymentFlow::Upfront {
+        for offer in &mut result {
+            if !supports_upfront(offer) {
+                return Err(invalid("upfront is unsupported for this payment offer"));
+            }
+            // Constructed offers always have an object; retain asset and sponsorship metadata.
+            offer.extra.as_mut().unwrap()["paymentFlow"] = json!("upfront");
         }
     }
     Ok(result)
