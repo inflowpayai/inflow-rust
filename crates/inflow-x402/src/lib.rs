@@ -7,7 +7,7 @@ pub use identifier::{
     generate_payment_id, identifier_declaration, identifier_entry, valid_payment_id,
 };
 pub use inflow_core::Error;
-pub use wire::{decode, encode, facilitator_request};
+pub use wire::{INFLOW_TRANSACTION, decode, encode, facilitator_request, inflow_transaction_id};
 // The v2 response enums omit extension data. These upstream wrappers retain complete JSON.
 pub use x402_types::proto::v2::{PaymentRequirements, X402Version2};
 pub use x402_types::proto::{SettleRequest, SettleResponse, VerifyRequest, VerifyResponse};
