@@ -150,7 +150,10 @@ async fn real_upstream_settles_before_handler_and_keeps_receipts_on_handler_fail
         for status in [200, 400, 402, 412, 500] {
             let platform = platform(
                 200,
-                json!({"success":true,"transaction":"tx","network":network}),
+                json!({"success":true,"transaction":"tx","network":network,
+                    "extensions":{"inflow-transaction":{"info":{"transactionId":"22222222-2222-4222-8222-222222222222"},
+                        "schema":{"type":"object","properties":{"transactionId":{"type":"string","format":"uuid"}},"required":["transactionId"]}},
+                        "custom":{"preserve":true}}}),
             );
             let route = route(scheme, network, method);
             let task = tokio::spawn(app(&platform, route.clone(), status).oneshot(request(&route)));
@@ -175,9 +178,19 @@ async fn real_upstream_settles_before_handler_and_keeps_receipts_on_handler_fail
                     .unwrap();
             assert_eq!(receipt["success"], true);
             assert_eq!(receipt["transaction"], "tx");
+            assert_eq!(receipt["extensions"], platform.body["extensions"]);
+            assert_eq!(
+                inflow_x402::inflow_transaction_id(&inflow_x402::SettleResponse(receipt)),
+                Some("22222222-2222-4222-8222-222222222222")
+            );
             let calls = platform.calls.lock().unwrap();
             assert_eq!(calls.len(), 1);
             let body: Value = serde_json::from_slice(&calls[0].body).unwrap();
+            assert!(
+                body["paymentPayload"]["extensions"]
+                    .get("inflow-transaction")
+                    .is_none()
+            );
             assert_eq!(
                 body["paymentRequirements"]["extra"]["paymentFlow"],
                 "upfront"
@@ -233,6 +246,15 @@ async fn pending_retries_preserve_payment_and_only_final_success_runs_handler() 
             .unwrap();
         let success = succeed_on == 3;
         assert_eq!(response.status(), if success { 200 } else { 402 });
+        if success {
+            let receipt =
+                inflow_x402::decode(response.headers()["payment-response"].to_str().unwrap())
+                    .unwrap();
+            assert_eq!(
+                inflow_x402::inflow_transaction_id(&inflow_x402::SettleResponse(receipt)),
+                None
+            );
+        }
         assert_eq!(
             platform
                 .events
@@ -310,7 +332,8 @@ async fn repeated_and_concurrent_requests_keep_the_same_payment_identifier_but_r
 {
     let platform = platform(
         200,
-        json!({"success":true,"transaction":"tx","network":"inflow:1"}),
+        json!({"success":true,"transaction":"tx","network":"inflow:1",
+            "extensions":{"inflow-transaction":{"info":{"transactionId":"22222222-2222-4222-8222-222222222222"}}}}),
     );
     platform.released.add_permits(3);
     let route = route("balance", "inflow:1", "default");
@@ -322,6 +345,12 @@ async fn repeated_and_concurrent_requests_keep_the_same_payment_identifier_but_r
     let c = app.oneshot(request(&route)).await.unwrap();
     for response in [a.unwrap(), b.unwrap(), c] {
         assert_eq!(response.status(), 200);
+        let receipt =
+            inflow_x402::decode(response.headers()["payment-response"].to_str().unwrap()).unwrap();
+        assert_eq!(
+            inflow_x402::inflow_transaction_id(&inflow_x402::SettleResponse(receipt)),
+            Some("22222222-2222-4222-8222-222222222222")
+        );
     }
     assert_eq!(
         platform
@@ -337,4 +366,32 @@ async fn repeated_and_concurrent_requests_keep_the_same_payment_identifier_but_r
     assert_eq!(calls.len(), 3);
     assert_eq!(calls[0].body, calls[1].body);
     assert_eq!(calls[1].body, calls[2].body);
+}
+
+#[tokio::test]
+async fn malformed_optional_transaction_id_does_not_change_successful_payment() {
+    let platform = platform(
+        200,
+        json!({"success":true,"transaction":"tx","network":"inflow:1",
+        "extensions":{"inflow-transaction":{"info":{"transactionId":42}},"custom":{"preserve":true}}}),
+    );
+    platform.released.add_permits(1);
+    let route = route("balance", "inflow:1", "default");
+    let response = app(&platform, route.clone(), 200)
+        .oneshot(request(&route))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let receipt =
+        inflow_x402::decode(response.headers()["payment-response"].to_str().unwrap()).unwrap();
+    assert_eq!(receipt, platform.body);
+    assert_eq!(
+        inflow_x402::inflow_transaction_id(&inflow_x402::SettleResponse(receipt)),
+        None
+    );
+    assert_eq!(platform.calls.lock().unwrap().len(), 1);
+    assert_eq!(
+        *platform.events.lock().unwrap(),
+        ["settle-start", "settle-finish", "handler"]
+    );
 }

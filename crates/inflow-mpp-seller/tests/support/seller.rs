@@ -180,6 +180,47 @@ fn receipt() -> Value {
 }
 
 #[tokio::test]
+async fn optional_transaction_ids_survive_settlement_and_repeated_responses() {
+    const ID: &str = "22222222-2222-4222-8222-222222222222";
+    for value in [None, Some(json!(ID)), Some(json!(42))] {
+        let mut result = receipt();
+        if let Some(value) = &value {
+            result["receipt"]["inflowTransactionId"] = value.clone();
+        }
+        let (seller, script) = seller(vec![
+            Reply::Config(config()),
+            Reply::Validate(json!({})),
+            Reply::Receipt(result.clone()),
+            Reply::Validate(json!({})),
+            Reply::Receipt(result.clone()),
+        ])
+        .await;
+        let offer = offer(&seller);
+        let credential = credential(&offer, None);
+        for _ in 0..2 {
+            let receipt = offer
+                .accept(&credential, None, &CancellationToken::new())
+                .await
+                .unwrap();
+            let expected = if value == Some(json!(ID)) {
+                Some(ID)
+            } else {
+                None
+            };
+            assert_eq!(inflow_mpp::inflow_transaction_id(&receipt), expected);
+            let header = receipt.to_header().unwrap();
+            let decoded = Receipt::from_header(&header).unwrap();
+            assert_eq!(inflow_mpp::inflow_transaction_id(&decoded), expected);
+            assert_eq!(decode(&header).unwrap(), result["receipt"]);
+            assert_eq!(receipt.reference, "tx");
+        }
+        let requests = script.requests.lock().unwrap();
+        assert_eq!(requests.len(), 5);
+        assert_eq!(requests[2].body, requests[4].body);
+    }
+}
+
+#[tokio::test]
 async fn instrument_receipts_must_match_the_paid_challenge() {
     for outcome in ["valid", "method", "identifier", "missing"] {
         let (seller, script) =

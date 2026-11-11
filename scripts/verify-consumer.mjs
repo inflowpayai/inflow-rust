@@ -46,6 +46,9 @@ fn main() {
     let _ = inflow_tap_seller::Verifier::new(Default::default()).unwrap();
     assert_eq!(Environment::Production.api_base_url(), "https://api.inflowpay.ai");
     let _ = inflow_mpp::decode("e30").unwrap();
+    let _ = inflow_mpp::inflow_transaction_id;
+    let _ = inflow_x402::inflow_transaction_id;
+    assert_eq!(inflow_x402::INFLOW_TRANSACTION, "inflow-transaction");
     let _ = inflow_x402::generate_payment_id("pay_").unwrap();
     let _ = std::mem::size_of::<inflow_mpp_buyer::Buyer>();
     let _ = inflow_mpp_buyer::Buyer::prepare_card;

@@ -79,6 +79,24 @@ pub fn decode_receipt(encoded: &str) -> Result<Receipt, Error> {
     serde_json::from_value(value).map_err(|_| invalid("receipt"))
 }
 
+/// Read the seller's Transaction UUID without substituting the payment reference.
+pub fn inflow_transaction_id(receipt: &Receipt) -> Option<&str> {
+    receipt
+        .extensions
+        .get("inflowTransactionId")?
+        .as_str()
+        .filter(|id| {
+            id.len() == 36
+                && id.bytes().enumerate().all(|(index, byte)| {
+                    if matches!(index, 8 | 13 | 18 | 23) {
+                        byte == b'-'
+                    } else {
+                        byte.is_ascii_hexdigit()
+                    }
+                })
+        })
+}
+
 pub(crate) fn validate_challenge(challenge: &PaymentChallenge) -> Result<(), Error> {
     for value in [
         &challenge.id,

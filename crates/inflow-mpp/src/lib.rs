@@ -9,7 +9,10 @@ mod stripe;
 #[doc(hidden)]
 pub mod internal;
 
-pub use codec::{Credential, decode, decode_credential, decode_receipt, encode, encode_credential};
+pub use codec::{
+    Credential, decode, decode_credential, decode_receipt, encode, encode_credential,
+    inflow_transaction_id,
+};
 pub use headers::{parse_challenges, render_challenge};
 pub use inflow_core::Error;
 pub use methods::{validate_payload, validate_request};

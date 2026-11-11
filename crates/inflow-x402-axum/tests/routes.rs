@@ -26,7 +26,10 @@ impl Transport for Platform {
             let body = if request.url.ends_with("/verify") {
                 json!({"isValid":self.valid,"payer":"buyer","invalidReason":"declined"})
             } else if request.url.ends_with("/settle") {
-                json!({"success":self.settled,"transaction":"tx","network":"inflow:1","errorReason":"declined"})
+                json!({"success":self.settled,"transaction":"tx","network":"inflow:1","errorReason":"declined",
+                    "extensions":{"inflow-transaction":{"info":{"transactionId":"22222222-2222-4222-8222-222222222222"},
+                        "schema":{"type":"object","properties":{"transactionId":{"type":"string","format":"uuid"}},"required":["transactionId"]}},
+                        "custom":{"preserve":true}}})
             } else {
                 json!({"kinds":[],"extensions":[],"signers":{}})
             };
@@ -103,6 +106,19 @@ async fn real_axum_route_verifies_executes_then_settles_only_success() {
             .unwrap();
         assert_eq!(response.status().as_u16(), expected);
         if expected == 200 {
+            let receipt =
+                inflow_x402::decode(response.headers()["payment-response"].to_str().unwrap())
+                    .unwrap();
+            assert_eq!(receipt["transaction"], "tx");
+            assert_eq!(receipt["extensions"]["custom"]["preserve"], true);
+            assert_eq!(
+                receipt["extensions"]["inflow-transaction"]["schema"]["required"],
+                json!(["transactionId"])
+            );
+            assert_eq!(
+                inflow_x402::inflow_transaction_id(&inflow_x402::SettleResponse(receipt)),
+                Some("22222222-2222-4222-8222-222222222222")
+            );
             assert_eq!(response.headers()["cache-control"], "public, max-age=60");
             assert_eq!(
                 response
@@ -124,6 +140,11 @@ async fn real_axum_route_verifies_executes_then_settles_only_success() {
         );
         for request in calls.iter().filter(|r| !r.body.is_empty()) {
             let body: Value = serde_json::from_slice(&request.body).unwrap();
+            assert!(
+                body["paymentPayload"]["extensions"]
+                    .get("inflow-transaction")
+                    .is_none()
+            );
             assert_eq!(
                 body["paymentPayload"]["extensions"]["future"]["preserve"],
                 true

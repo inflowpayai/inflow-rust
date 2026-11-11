@@ -12,10 +12,12 @@ async fn direct_http_handler_preserves_authentication_body_binding_and_platform_
 }
 
 async fn exercise() {
+    let mut result = receipt();
+    result["receipt"]["inflowTransactionId"] = json!("22222222-2222-4222-8222-222222222222");
     let (seller, script) = seller(vec![
         Reply::Config(config()),
         Reply::Validate(json!({})),
-        Reply::Receipt(receipt()),
+        Reply::Receipt(result.clone()),
         Reply::Status(403),
     ])
     .await;
@@ -138,6 +140,14 @@ async fn exercise() {
     assert_eq!(send("changed query").await.unwrap().status(), 402);
     let response = send("query").await.unwrap();
     assert_eq!(response.status(), 200);
+    let decoded =
+        inflow_mpp::decode_receipt(response.headers()["payment-receipt"].to_str().unwrap())
+            .unwrap();
+    assert_eq!(
+        inflow_mpp::inflow_transaction_id(&decoded),
+        Some("22222222-2222-4222-8222-222222222222")
+    );
+    assert_eq!(serde_json::to_value(decoded).unwrap(), result["receipt"]);
     assert_eq!(
         inflow_mpp::decode_receipt(response.headers()["payment-receipt"].to_str().unwrap())
             .unwrap()

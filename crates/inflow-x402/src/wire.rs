@@ -1,4 +1,4 @@
-use crate::{Error, VerifyRequest, invalid};
+use crate::{Error, SettleResponse, VerifyRequest, invalid};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
 
@@ -10,6 +10,18 @@ pub fn encode(value: &Value) -> String {
 pub fn decode(encoded: &str) -> Result<Value, Error> {
     let bytes = STANDARD.decode(encoded).map_err(|_| invalid("encoding"))?;
     serde_json::from_slice(&bytes).map_err(|_| invalid("JSON"))
+}
+
+pub const INFLOW_TRANSACTION: &str = "inflow-transaction";
+
+/// Read the seller's Transaction UUID without substituting the settlement reference.
+pub fn inflow_transaction_id(result: &SettleResponse) -> Option<&str> {
+    if result.0["success"] != true {
+        return None;
+    }
+    result.0["extensions"][INFLOW_TRANSACTION]["info"]["transactionId"]
+        .as_str()
+        .filter(|id| id.len() == 36 && uuid::Uuid::try_parse(id).is_ok())
 }
 
 /// Retains payload extensions and request fields without projecting through chain-specific types.
