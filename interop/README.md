@@ -37,9 +37,10 @@ peer is not included in published crates.
 
 MPP settles before calling the protected handler. x402 verifies before the handler
 and settles after a successful handler response. These are separate assertions.
-The Rust MPP peer supplies its application HTTP route because the Seller package
-exposes `Offer::accept`, not web middleware. Validation and settlement remain inside
-that SDK method; the peer does not implement payment verification.
+The Rust MPP peer exercises the direct `Offer::accept` integration. Validation and
+settlement remain inside that SDK method; the peer does not implement payment
+verification. Seller middleware tests and the runnable example also exercise the
+optional Tower integration.
 
 Rust MPP Seller subscriptions are excluded because upstream `mpp` lacks the Seller
 subscription intent. Rust Buyer subscriptions remain tested. The suite does not

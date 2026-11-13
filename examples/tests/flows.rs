@@ -201,10 +201,27 @@ async fn card_example_buyer_pays_example_seller_without_platform_key_leakage() {
 #[tokio::test]
 async fn both_buyers_pay_the_actual_example_sellers_and_preserve_failures() {
     tokio::time::timeout(std::time::Duration::from_secs(20), async {
-        for (mpp, flow) in [
-            (true, inflow_x402_seller::PaymentFlow::Authorization),
-            (false, inflow_x402_seller::PaymentFlow::Authorization),
-            (false, inflow_x402_seller::PaymentFlow::Upfront),
+        for (mpp, flow, path) in [
+            (
+                true,
+                inflow_x402_seller::PaymentFlow::Authorization,
+                "/api/widgets",
+            ),
+            (
+                true,
+                inflow_x402_seller::PaymentFlow::Authorization,
+                "/api/tower-widgets",
+            ),
+            (
+                false,
+                inflow_x402_seller::PaymentFlow::Authorization,
+                "/api/widgets",
+            ),
+            (
+                false,
+                inflow_x402_seller::PaymentFlow::Upfront,
+                "/api/widgets",
+            ),
         ] {
             for mode in [
                 "success",
@@ -239,7 +256,8 @@ async fn both_buyers_pay_the_actual_example_sellers_and_preserve_failures() {
                         next.run(request).await
                     },
                 ));
-                let (url, server) = serve(app).await;
+                let (mut url, server) = serve(app).await;
+                url.set_path(path);
                 let mut out = Vec::new();
                 let result = if mpp {
                     mpp_buyer::run(options, url, &token, &mut out).await

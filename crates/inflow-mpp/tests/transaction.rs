@@ -4,6 +4,23 @@ use serde_json::{Value, json};
 const ID: &str = "abcdefab-1234-4567-89ab-abcdef123456";
 
 #[test]
+fn funding_currency_uses_typed_upstream_field_and_preserves_wire_representation() {
+    let wire = json!({"method":"tempo","status":"success","reference":"transaction",
+        "timestamp":"2026-09-01T12:00:00Z","fundingCurrency":"USDC","inflowTransactionId":ID});
+    let receipt = decode_receipt(&encode(&wire).unwrap()).unwrap();
+    assert_eq!(receipt.funding_currency(), Some("USDC"));
+    assert!(!receipt.extensions.contains_key("fundingCurrency"));
+    assert_eq!(decode(&receipt.to_header().unwrap()).unwrap(), wire);
+    for invalid in [json!(null), json!(1), json!(false), json!([]), json!({})] {
+        let mut wire = wire.clone();
+        wire["fundingCurrency"] = invalid;
+        // Use upstream's raw JSON encoding: InFlow's canonical encoder omits null object members.
+        let encoded = inflow_mpp::Base64UrlJson::from_value(&wire).unwrap();
+        assert!(decode_receipt(encoded.raw()).is_err());
+    }
+}
+
+#[test]
 fn transaction_id_survives_upstream_receipt_headers_without_changing_references() {
     for id in [ID.to_owned(), ID.to_uppercase()] {
         let wire = json!({"method":"inflow","status":"success","reference":"payment-reference",

@@ -7,7 +7,7 @@ paid resource. Supported methods are InFlow, Tempo, Stripe, and CARD charge.
 [Source](https://github.com/inflowpayai/inflow-rust/tree/main/crates/inflow-mpp-seller) ·
 [MPP](https://mpp.dev/) · [Core codecs](../inflow-mpp/README.md)
 
-Add `inflow-mpp-seller`, `inflow-mpp`, and `serde_json` to use the examples below.
+Add `inflow-mpp-seller`, `inflow-mpp`, and `serde_json` to use the direct-handler examples below.
 The handler can run inside any HTTP framework using the application's Tokio runtime.
 
 ## Account and setup
@@ -161,6 +161,61 @@ and a network or platform failure must not invite the buyer to make another
 payment automatically. `Error` retains the platform's HTTP metadata and problem
 body. Never log the payment credential, API key, or challenge-signing secret.
 
+## Tower middleware
+
+Enable `features = ["tower"]` on `inflow-mpp-seller` to use an `Offer` with
+upstream's `PaymentLayer` or `PaymentBodyLayer`. The layer calls `accept` before
+the application handler and attaches a receipt to successful responses.
+Use `with_problem_details` to return readable JSON payment errors instead of
+empty error bodies. The callback converts those JSON bytes into your framework's
+response-body type; it does not replace application responses.
+
+The example below also uses `bytes`, `http`, and `tower` with its `util` feature.
+It wraps a Tower service whose response body is a byte vector:
+
+```no_run
+# #[cfg(feature = "tower")]
+# async fn example(offer: inflow_mpp_seller::Offer) -> Result<(), std::convert::Infallible> {
+use bytes::Bytes;
+use http::{Request, Response};
+use inflow_mpp_seller::PaymentLayer;
+use tower::{Layer, ServiceExt, service_fn};
+
+let handler = service_fn(|_: Request<()>| async {
+    Ok::<_, std::convert::Infallible>(Response::new(b"paid result".to_vec()))
+});
+let protected = PaymentLayer::new(offer)
+    .with_problem_details(|json: Bytes| json.to_vec())
+    .layer(handler);
+let response = protected.oneshot(Request::new(())).await?;
+# Ok::<(), std::convert::Infallible>(())
+# }
+```
+
+`offer` is the trusted configuration constructed above. In Axum, use
+`with_problem_details(axum::body::Body::from)` on the layer and install it on the
+paid route, as demonstrated in the runnable Seller example. Authentication remains
+your application's responsibility: when `requires_auth` is true, the layer reads
+`Payment-Authorization` and leaves `Authorization` for your authentication layer.
+Run authentication before the payment layer.
+
+For body-bound payments, use `PaymentBodyLayer::new(offer).max_body_bytes(limit)`
+before `.with_problem_details(...)`. It buffers at most that many bytes and passes
+the original bytes to the handler. The default limit is 2 MiB. `PaymentLayer`
+does not bind payments to request-body contents.
+
+Malformed credentials, mismatched offers, and explicit payment rejections return
+a payment problem with a fresh challenge. An explicit 403 payment rejection is
+terminal and has no replacement challenge. Transport failures and unknown payment
+outcomes return a generic 500 problem without backend details or a fresh challenge.
+Neither kind of failure runs the handler. Direct `accept` calls retain the full
+structured error for applications that need their own error presentation.
+
+The layer does not retry the handler or reverse payment if the handler fails.
+Upstream adds receipts only to successful application responses; a failed response
+can therefore follow a completed payment without carrying a receipt. Reconcile
+that payment before retrying, and implement fulfillment recovery in your application.
+
 ## Validation, settlement, and cancellation
 
 `validate` is non-mutating and returns payment details; it is **not** proof of
@@ -196,19 +251,9 @@ every `MPP_PAYMENT_FAILED` to HTTP 402: inspect the problem status. An internal
 failure during settlement can leave the payment outcome unknown; it is not an
 instruction to create another payment.
 
-- Expected-offer checks include InFlow and Tempo method-specific terms.
-  [Upstream issue #555](https://github.com/tempoxyz/mpp-rs/issues/555) tracks the
-  corresponding upstream binding support.
+- Expected-offer checks use upstream's `validate_expected_request` hook to bind
+  method-specific terms before validation or settlement, including the selected
+  InFlow rail, instrument, and Tempo transfer terms.
 - Seller subscriptions are not exposed because upstream lacks the Seller intent
   implementation. [Issue #554](https://github.com/tempoxyz/mpp-rs/issues/554)
   tracks it. Buyer subscription support is separate.
-- **Framework integration:** use the direct handler integration shown above.
-  The optional Tower adapter is deferred because upstream Tower middleware returns
-  empty error bodies. Applications need a useful explanation when payment fails,
-  including when the server cannot confirm the result. Upstream's Axum extractors
-  provide problem bodies, but switching to extractors would change the integration
-  design; it is not a prerequisite for using this SDK. We retain the Tower design
-  and track response-body support in
-  [upstream issue #561](https://github.com/tempoxyz/mpp-rs/issues/561), following
-  [PR #497](https://github.com/tempoxyz/mpp-rs/pull/497). Direct Seller integrations
-  and SDK releases do not depend on that optional adapter.

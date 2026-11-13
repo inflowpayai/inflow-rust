@@ -205,6 +205,63 @@ async fn card_uses_existing_lifecycle_and_rejects_changed_credentials() {
 }
 
 #[tokio::test]
+async fn malformed_card_challenges_fail_before_any_platform_request() {
+    let (buyer, script) = client(vec![]);
+    for field in ["realm", "request", "amount"] {
+        let mut challenge = card_challenge();
+        match field {
+            "realm" => challenge.realm = "shop\r\nInjected: value".into(),
+            "request" => challenge.request = Base64UrlJson::from_raw("not-json"),
+            _ => {
+                let mut request = inflow_mpp::decode(challenge.request.raw()).unwrap();
+                request["amount"] = json!("1.25");
+                challenge.request = Base64UrlJson::from_raw(encode(&request).unwrap());
+            }
+        }
+        assert!(
+            buyer
+                .prepare_card(&challenge, card_options(), &CancellationToken::new())
+                .await
+                .is_err(),
+            "{field}"
+        );
+    }
+    assert!(script.requests.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn card_creation_failures_do_not_retry_or_request_a_credential() {
+    for (response, code) in [
+        (
+            Reply::Json(
+                403,
+                json!({"code":"CARD_DECLINED", "message":"Card declined"}),
+            ),
+            "CARD_DECLINED",
+        ),
+        (
+            reply(json!({"state":"pending", "approvalId":false})),
+            "MPP_MALFORMED_CREDENTIAL",
+        ),
+    ] {
+        let (buyer, script) = client(vec![response]);
+        assert_eq!(
+            buyer
+                .prepare_card(&card_challenge(), card_options(), &CancellationToken::new())
+                .await
+                .err()
+                .unwrap()
+                .code,
+            code
+        );
+        tokio::task::yield_now().await;
+        let requests = script.requests.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].0.method, "POST");
+    }
+}
+
+#[tokio::test]
 async fn card_options_fail_before_any_platform_request() {
     let (buyer, script) = client(vec![]);
     let mut expired = card_challenge();

@@ -529,6 +529,7 @@ async fn sponsorship_requires_asset_and_facilitator_capabilities() {
         ),
         ("tokenName", json!(""), "inflowEip7702GasSponsoring"),
         ("permit2Proxy", json!("wrong"), ""),
+        ("permit2Proxy", Value::Null, ""),
         ("assetTransferMethod", json!("eip3009"), ""),
     ] {
         let s = fixture();
@@ -602,6 +603,26 @@ async fn metered_offers_are_explicit_and_require_complete_metadata() {
     s.0.lock().unwrap().config["supported"][0]["extra"]["facilitatorAddress"] = json!("");
     seller.refresh_config(&t).await.unwrap();
     assert!(seller.offers(&o, &t).await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn metered_offers_reject_prices_that_would_lose_precision() {
+    let s = fixture();
+    s.0.lock().unwrap().config["supported"] = json!([{"scheme":"upto","network":"eip155:8453","x402Version":2,"extra":{"assetTransferMethod":"permit2","permit2Proxy":"metered-proxy","facilitatorAddress":"witness"}}]);
+    let seller = seller(&s).await;
+    let t = CancellationToken::new();
+    let mut options = OfferOptions::new("0.0000001 USDC");
+    options.schemes = Some(vec!["upto".into()]);
+    let error = seller.offers(&options, &t).await.unwrap_err();
+    assert_eq!(
+        error.message,
+        "price cannot be represented without truncation"
+    );
+    options.price = "0.00000100 USDC".into();
+    let offers = seller.offers(&options, &t).await.unwrap();
+    assert_eq!(offers.len(), 1);
+    assert_eq!(offers[0].scheme, "upto");
+    assert_eq!(offers[0].amount, "1");
 }
 
 #[tokio::test]

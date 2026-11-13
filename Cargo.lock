@@ -3222,7 +3222,9 @@ dependencies = [
 name = "inflow-mpp-seller"
 version = "0.4.1"
 dependencies = [
+ "bytes",
  "http 1.5.0",
+ "http-body-util",
  "inflow-core",
  "inflow-mpp",
  "mpp",
@@ -3232,6 +3234,7 @@ dependencies = [
  "time",
  "tokio",
  "tokio-util",
+ "tower",
  "uuid",
 ]
 
@@ -3724,15 +3727,18 @@ dependencies = [
 
 [[package]]
 name = "mpp"
-version = "0.15.1"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea0f0dd609b04dc80d184bfeb104eed48fc3793c08affe20f7f5e6d6ba6994d6"
+checksum = "7791aaaba5763e49e0df7143f2af5fddf8f2f2b784b3207aa44791ea07600e82"
 dependencies = [
  "async-stream",
  "base64 0.22.1",
+ "bytes",
  "futures-core",
  "hmac 0.13.0",
  "http 1.5.0",
+ "http-body",
+ "http-body-util",
  "serde",
  "serde_json",
  "serde_json_canonicalizer",
@@ -3741,6 +3747,8 @@ dependencies = [
  "thiserror 2.0.21",
  "time",
  "tokio",
+ "tower-layer",
+ "tower-service",
 ]
 
 [[package]]

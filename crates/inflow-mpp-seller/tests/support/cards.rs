@@ -229,6 +229,31 @@ async fn card_terms_and_stripe_reference_cannot_be_replaced() {
 }
 
 #[tokio::test]
+async fn card_and_stripe_reject_invalid_payloads_before_validation_or_settlement() {
+    for method in [Method::Stripe, Method::Card] {
+        let (seller, script) = seller(vec![Reply::Config(configuration(method))]).await;
+        let offer = seller
+            .offer(method, json!({"amount":"1.25"}), Default::default())
+            .unwrap();
+        let mut credential = credential(&offer, None);
+        credential.payload.clear();
+        for settle in [false, true] {
+            let error = if settle {
+                err(offer
+                    .accept(&credential, None, &CancellationToken::new())
+                    .await)
+            } else {
+                err(offer
+                    .validate(&credential, None, &CancellationToken::new())
+                    .await)
+            };
+            assert_eq!(error.code, "INVALID_MPP_DATA");
+            assert_eq!(script.requests.lock().unwrap().len(), 1);
+        }
+    }
+}
+
+#[tokio::test]
 async fn card_and_stripe_reject_invalid_signatures_and_expiry_before_platform_calls() {
     for method in [Method::Card, Method::Stripe] {
         for failure in ["signature", "expired"] {

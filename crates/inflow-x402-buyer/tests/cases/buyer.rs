@@ -90,6 +90,12 @@ async fn input_failures_do_not_create_payments_and_read_failures_do_not_erase_ca
     );
     let malformed: OriginalJson = serde_json::from_value(json!({"scheme":"balance"})).unwrap();
     assert!(buyer.supports(&malformed, &token).await.is_err());
+    assert!(
+        buyer
+            .prepare(&malformed, &required(), SignOptions::default(), &token)
+            .await
+            .is_err()
+    );
     let mut r = required();
     r.accepts = vec![malformed];
     assert!(buyer.select(&r, &token).await.is_err());
@@ -126,8 +132,45 @@ async fn input_failures_do_not_create_payments_and_read_failures_do_not_erase_ca
         "X402_PAYMENT_ID_FORMAT"
     );
     buyer.cancel_approval("manual").await.unwrap();
+    assert!(buyer.cancel_approval("..").await.is_err());
     token.cancel();
     assert!(buyer.supported(&token).await.is_err());
+    assert_eq!(
+        buyer
+            .supports(&r.accepts[0], &token)
+            .await
+            .unwrap_err()
+            .code,
+        "X402_APPROVAL_CANCELLED"
+    );
+    assert_eq!(
+        buyer.select(&r, &token).await.unwrap_err().code,
+        "X402_APPROVAL_CANCELLED"
+    );
+    assert_eq!(
+        buyer
+            .prepare(&r.accepts[0], &r, SignOptions::default(), &token)
+            .await
+            .err()
+            .unwrap()
+            .code,
+        "X402_APPROVAL_CANCELLED"
+    );
+    assert_eq!(
+        buyer
+            .sign(
+                &r.accepts[0],
+                &r,
+                SignOptions::default(),
+                WaitOptions::default(),
+                &token
+            )
+            .await
+            .err()
+            .unwrap()
+            .code,
+        "X402_APPROVAL_CANCELLED"
+    );
     assert_eq!(platform.requests.lock().unwrap().len(), 3);
     assert!(
         Buyer::new(
