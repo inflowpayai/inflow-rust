@@ -67,6 +67,15 @@ request objects, not to rebuild an already-issued challenge's encoded fields.
 
 ## Differences from upstream MPP
 
+`Receipt` is the upstream type. Read the optional funding token through
+`receipt.funding_currency()` rather than `receipt.extensions["fundingCurrency"]`.
+Set it through `with_funding_currency(...)` or the `funding_currency` field;
+an extension-map entry with that name is not serialized. Prefer `Receipt::success`
+for construction; a struct literal must include `funding_currency` (use `None`
+when the funding token is unknown).
+It is serialized as the same `fundingCurrency` JSON field and must be a string
+when present. Other extension fields, including `inflowTransactionId`, are retained.
+
 - **HTTP quoted strings:** upstream interprets `\u0041` inside a quoted header as
   `A`. HTTP quoted-pair rules interpret it as `u0041`. This crate's header codec
   follows HTTP semantics, matching the Node integration. The mismatch is tracked

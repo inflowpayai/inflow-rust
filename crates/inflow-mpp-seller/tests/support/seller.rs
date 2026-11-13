@@ -4,6 +4,8 @@ use std::{collections::VecDeque, future::Future, pin::Pin};
 
 mod cards;
 mod http;
+#[cfg(feature = "tower")]
+mod middleware;
 
 #[tokio::test]
 async fn shared_preparation_and_signed_route_vectors() {

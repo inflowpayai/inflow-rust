@@ -1,12 +1,15 @@
 use crate::Result;
 use axum::{
     Json, Router,
+    body::Body,
     extract::State,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
 };
-use inflow_mpp_seller::{ChallengeOptions, ClientOptions, Method, Offer, Seller, SellerOptions};
+use inflow_mpp_seller::{
+    ChallengeOptions, ClientOptions, Method, Offer, PaymentLayer, Seller, SellerOptions,
+};
 use serde_json::json;
 use tokio_util::sync::CancellationToken;
 
@@ -52,6 +55,11 @@ pub async fn router_with_method(
     Ok(Router::new()
         .route("/free", get(|| async { Json(json!({"ok":true})) }))
         .route("/api/widgets", get(widgets))
+        .route(
+            "/api/tower-widgets",
+            get(|| async { Json(json!({"widgets":[1,2,3]})) })
+                .layer(PaymentLayer::new(offer.clone()).with_problem_details(Body::from)),
+        )
         .with_state(offer))
 }
 

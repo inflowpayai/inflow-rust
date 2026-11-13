@@ -35,7 +35,7 @@ try {
     .join("\n");
   writeFileSync(
     join(consumer, "Cargo.toml"),
-    `[package]\nname="inflow-release-consumer"\nversion="0.1.0"\nedition="2024"\n[features]\nevm=["inflow-x402-buyer/evm"]\nsolana=["inflow-x402-buyer/solana"]\n[dependencies]\n${dependencies}\n${patches}\n`,
+    `[package]\nname="inflow-release-consumer"\nversion="0.1.0"\nedition="2024"\n[features]\nevm=["inflow-x402-buyer/evm"]\nsolana=["inflow-x402-buyer/solana"]\nmpp-tower=["inflow-mpp-seller/tower"]\n[dependencies]\n${dependencies}\n${patches}\n`,
   );
   mkdirSync(join(consumer, "src"));
   writeFileSync(
@@ -66,6 +66,11 @@ fn main() {
     };
     let _ = [inflow_mpp_seller::Method::Stripe, inflow_mpp_seller::Method::Card];
     let _ = std::mem::size_of::<inflow_mpp_seller::Seller>();
+    let _ = inflow_mpp::Receipt::success("inflow", "example").funding_currency();
+    #[cfg(feature="mpp-tower")] {
+        let _: fn(inflow_mpp_seller::Offer) -> inflow_mpp_seller::PaymentLayer<inflow_mpp_seller::Offer> = inflow_mpp_seller::PaymentLayer::new;
+        let _: fn(inflow_mpp_seller::Offer) -> inflow_mpp_seller::PaymentBodyLayer<inflow_mpp_seller::Offer> = inflow_mpp_seller::PaymentBodyLayer::new;
+    }
     let _ = std::mem::size_of::<inflow_x402_buyer::HttpBuyer>();
     let mut offers = inflow_x402_seller::OfferOptions::new("0.01 USDC");
     assert_eq!(offers.payment_flow, inflow_x402_seller::PaymentFlow::Authorization);
@@ -82,11 +87,12 @@ fn main() {
     [],
     ["--features", "evm"],
     ["--features", "solana"],
+    ["--features", "mpp-tower"],
     ["--all-features"],
   ]) {
     run("cargo", ["run", "--locked", "--target-dir", target, ...features], consumer);
   }
-  console.log(`Consumer passed: ${mode}, default/EVM/Solana/combined features`);
+  console.log(`Consumer passed: ${mode}, default/EVM/Solana/MPP Tower/combined features`);
   const standalone = join(consumer, "standalone");
   mkdirSync(join(standalone, "src"), { recursive: true });
   writeFileSync(join(standalone, "src/lib.rs"), "");

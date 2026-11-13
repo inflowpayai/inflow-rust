@@ -10,6 +10,36 @@ use tokio::{
     sync::Notify,
 };
 
+#[cfg(target_os = "linux")]
+#[test]
+fn missing_trust_store_returns_configuration_error() {
+    const CHILD: &str = "INFLOW_TEST_MISSING_TRUST_STORE";
+    if std::env::var_os(CHILD).is_some() {
+        let error = VisaKeyResolver::new(KeyResolverOptions::default())
+            .err()
+            .expect("an empty trust store must not produce a usable resolver");
+        assert_eq!(error.code, "INVALID_CONFIGURATION");
+        return;
+    }
+    // Certificate environment variables must not affect concurrently running tests.
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "keys::tests::missing_trust_store_returns_configuration_error",
+        ])
+        .env(CHILD, "1")
+        .env("SSL_CERT_FILE", "/dev/null")
+        .env("SSL_CERT_DIR", "/dev/null")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
+}
+
 struct Server {
     url: String,
     response: Arc<Mutex<String>>,

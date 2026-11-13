@@ -10,6 +10,9 @@ description = "Seller integration for InFlow MPP payments."
 readme = "README.md"
 include = ["src/**", "tests/**", "README.md", "LICENSE"]
 
+[features]
+tower = ["mpp/tower"]
+
 [dependencies]
 inflow-core = { path = "../inflow-core", version = "0.4.1" }
 inflow-mpp = { path = "../inflow-mpp", version = "0.4.1" }
@@ -21,9 +24,12 @@ tokio-util.workspace = true
 uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
+bytes = "1"
 http.workspace = true
+http-body-util = "0.1"
 reqwest.workspace = true
 tokio = { workspace = true, features = ["test-util", "net", "io-util"] }
+tower = { version = "0.5", features = ["util"] }
 
 [lints]
 workspace = true

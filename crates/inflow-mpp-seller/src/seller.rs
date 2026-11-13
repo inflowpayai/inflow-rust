@@ -160,6 +160,15 @@ pub struct Validation {
 }
 
 impl Offer {
+    #[cfg(feature = "tower")]
+    pub(crate) fn credential_header(&self) -> &'static str {
+        if self.options.requires_auth {
+            "Payment-Authorization"
+        } else {
+            "Authorization"
+        }
+    }
+
     pub fn request(&self) -> &Value {
         &self.request
     }
@@ -258,27 +267,6 @@ impl Offer {
         inflow_mpp::encode_credential(credential)?;
         let request = decode(credential.challenge.request.raw())?;
         validate_request(self.method.name(), "charge", &request)?;
-        if binding(self.method, &request) != binding(self.method, &self.request) {
-            return Err(Error::new(
-                "MPP_CREDENTIAL_MISMATCH",
-                "credential does not match this offer",
-            ));
-        }
-        if matches!(self.method, Method::Stripe | Method::Card) {
-            inflow_mpp::validate_payload(
-                self.method.name(),
-                &Value::Object(credential.payload.clone()),
-            )?;
-        }
-        if self.method == Method::Stripe
-            && request.get("externalId").is_some()
-            && request.get("externalId") != credential.payload.get("externalId")
-        {
-            return Err(Error::new(
-                "MPP_CREDENTIAL_MISMATCH",
-                "credential externalId does not match the challenge",
-            ));
-        }
         let mut wire = serde_json::to_value(credential).map_err(json_error)?;
         if matches!(self.method, Method::Stripe | Method::Card) && credential.source.is_none() {
             wire["source"] = json!("");
@@ -345,11 +333,38 @@ impl ChargeMethod for Bridge {
     fn supports_validation(&self) -> bool {
         true
     }
+    fn validate_expected_request(
+        &self,
+        request: &ChargeRequest,
+        expected: &ChargeRequest,
+    ) -> Result<(), VerificationError> {
+        if binding(self.method, request) != binding(self.method, expected) {
+            return Err(self.retain(Error::new(
+                "MPP_CREDENTIAL_MISMATCH",
+                "credential does not match this offer",
+            )));
+        }
+        Ok(())
+    }
     async fn validate(
         &self,
         credential: &PaymentCredential,
         request: &ChargeRequest,
     ) -> Result<ChargeValidation, VerificationError> {
+        if matches!(self.method, Method::Stripe | Method::Card) {
+            inflow_mpp::validate_payload(self.method.name(), &credential.payload)
+                .map_err(|error| self.retain(error))?;
+        }
+        if self.method == Method::Stripe
+            && request.external_id.is_some()
+            && request.external_id.as_deref()
+                != credential.payload.get("externalId").and_then(Value::as_str)
+        {
+            return Err(self.retain(Error::new(
+                "MPP_CREDENTIAL_MISMATCH",
+                "credential externalId does not match the challenge",
+            )));
+        }
         let result = self
             .seller
             .0
@@ -487,36 +502,36 @@ fn rails(config: &Value, request: &Value) -> Result<Value, Error> {
     Ok(result)
 }
 
-fn binding(method: Method, request: &Value) -> Value {
-    // Upstream expected-request checks omit method-specific fields (issue555).
+fn binding(method: Method, request: &ChargeRequest) -> Value {
     // Match Node's stableBinding so valid credentials cannot change rail or Tempo transfer terms.
+    let details = request.method_details.as_ref().unwrap_or(&Value::Null);
     match method {
         Method::Stripe | Method::Card => json!({
-            "amount":request["amount"], "currency":request["currency"],
-            "recipient":request["recipient"], "externalId":request["externalId"],
-            "methodDetails":request["methodDetails"]
+            "amount":request.amount, "currency":request.currency,
+            "recipient":request.recipient, "externalId":request.external_id,
+            "methodDetails":details
         }),
         Method::Inflow => {
             json!({
-                "amount": request["amount"],
-                "currency": request["currency"],
-                "recipient": request["recipient"],
-                "rail": request["methodDetails"].get("rail").cloned().unwrap_or(json!("balance")),
-                "instrumentId": request["methodDetails"]["instrumentId"]
+                "amount": request.amount,
+                "currency": request.currency,
+                "recipient": request.recipient,
+                "rail": details.get("rail").cloned().unwrap_or(json!("balance")),
+                "instrumentId": details["instrumentId"]
             })
         }
         Method::Tempo => {
             json!({
-                "amount": request["amount"],
-                "currency": request["currency"],
-                "recipient": request["recipient"],
-                "description": request["description"],
-                "externalId": request["externalId"],
-                "chainId": request["methodDetails"]["chainId"],
-                "feePayer": request["methodDetails"]["feePayer"],
-                "memo": request["methodDetails"]["memo"],
-                "splits": request["methodDetails"]["splits"],
-                "supportedModes": request["methodDetails"]["supportedModes"]
+                "amount": request.amount,
+                "currency": request.currency,
+                "recipient": request.recipient,
+                "description": request.description,
+                "externalId": request.external_id,
+                "chainId": details["chainId"],
+                "feePayer": details["feePayer"],
+                "memo": details["memo"],
+                "splits": details["splits"],
+                "supportedModes": details["supportedModes"]
             })
         }
     }

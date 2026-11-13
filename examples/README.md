@@ -81,6 +81,13 @@ returns HTTP 502 without a fresh challenge or paid resource. Malformed Payment
 authorization returns HTTP 400. Check transactions before retrying an uncertain
 settlement: an HTTP failure does not prove that no payment occurred.
 
+The same server exposes `/api/tower-widgets` using upstream Tower middleware and
+the same Offer. It settles before running the handler and returns JSON Problem
+Details for payment errors. An unknown payment outcome returns 500 without a fresh
+challenge. To use that route with the Buyer, set
+`TARGET_URL=http://127.0.0.1:3000/api/tower-widgets` before running `mpp-buyer`.
+This is an alternative integration, not a second payment required by `/api/widgets`.
+
 ## CARD and Stripe
 
 The same MPP Seller can advertise one of three USD payment methods at **1.25 USD**:
