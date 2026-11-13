@@ -23,6 +23,41 @@ let app = Router::new().route("/report",
 # }
 ```
 
+## Request-time pricing
+
+Use `RequestPaymentLayer` to resolve a complete route asynchronously for each
+request. The callback returns a `payment_layer`, including its extensions and
+execution flow. Fixed-price routes can use `payment_layer` directly.
+
+```no_run
+use axum::{Router, http::request::Parts, routing::get};
+use inflow_x402_axum::{RequestPaymentLayer, payment_layer};
+use inflow_x402_seller::{Seller, OfferOptions, CancellationToken};
+
+# fn example(seller: Seller) -> Router {
+let layer = RequestPaymentLayer::new(move |request: Parts, _| {
+    let seller = seller.clone();
+    async move {
+        let price = if request.uri.path() == "/reports/full" { "$0.02" } else { "$0.01" };
+        let route = seller.route(&OfferOptions::new(price), &CancellationToken::new()).await?;
+        let resource = format!("https://service.example{}", request.uri.path());
+        payment_layer(seller.facilitator(), route, &resource)
+    }
+});
+Router::new().route("/reports/{edition}", get(|| async { "Your report" }).route_layer(layer))
+# }
+```
+
+The callback receives owned HTTP request parts and `None` for the body by default.
+Opt into body-based pricing with `.with_body_limit(bytes)`; the second argument
+then contains the original bytes, which are also delivered to the handler.
+Oversized bodies return 413, unreadable bodies return 400, and resolver failures
+return a generic 500. These failures do not attempt payment or run the handler.
+Resolver errors remain available to server middleware through `response.extensions().get::<inflow_x402_seller::Error>()`; they are not serialized to the client.
+Resolution runs once per incoming request, including paid retries; it is not a
+price lock across requests. Authenticate before the payment layer when pricing
+depends on customer identity.
+
 By default the layer uses `x402-axum` to verify the payment, execute the handler, and settle
 after a successful handler response. A handler returning a 4xx or 5xx response
 does not trigger settlement. A settlement failure does not return the handler's

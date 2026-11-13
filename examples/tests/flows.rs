@@ -320,6 +320,209 @@ async fn both_buyers_pay_the_actual_example_sellers_and_preserve_failures() {
 }
 
 #[tokio::test]
+async fn mpp_example_rechallenges_price_mismatch_but_not_settlement_failure() {
+    use tower::ServiceExt;
+    for mode in ["success", "settlement-failure"] {
+        let (options, platform) = setup(mode);
+        let app = mpp_seller::router(
+            options,
+            "test-secret-at-least-32-characters".into(),
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        let response = app
+            .clone()
+            .oneshot(
+                http::Request::builder()
+                    .uri("/api/widgets")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 402);
+        let challenge = inflow_mpp::parse_challenges(&[response.headers()["www-authenticate"]
+            .to_str()
+            .unwrap()])
+        .unwrap()
+        .remove(0);
+        let credential =
+            inflow_mpp::encode(&json!({"challenge":challenge,"payload":{"proof":"synthetic"}}))
+                .unwrap();
+        let response = app
+            .clone()
+            .oneshot(
+                http::Request::builder()
+                    .uri("/api/widgets?bundle=large")
+                    .header("authorization", format!("Payment {credential}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 402);
+        assert_eq!(response.headers()["cache-control"], "no-store");
+        assert!(!response.headers().contains_key("payment-receipt"));
+        let challenge = inflow_mpp::parse_challenges(&[response.headers()["www-authenticate"]
+            .to_str()
+            .unwrap()])
+        .unwrap()
+        .remove(0);
+        let terms: Value = challenge.request.decode().unwrap();
+        assert_eq!(terms["amount"], "0.02");
+        assert!(
+            platform
+                .calls
+                .lock()
+                .unwrap()
+                .iter()
+                .all(|call| call.url.ends_with("/config"))
+        );
+        let credential =
+            inflow_mpp::encode(&json!({"challenge":challenge,"payload":{"proof":"synthetic"}}))
+                .unwrap();
+        let response = app
+            .oneshot(
+                http::Request::builder()
+                    .uri("/api/widgets?bundle=large")
+                    .header("authorization", format!("Payment {credential}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), if mode == "success" { 200 } else { 502 });
+        assert!(!response.headers().contains_key("www-authenticate"));
+        assert_eq!(
+            response.headers().contains_key("payment-receipt"),
+            mode == "success"
+        );
+        assert_eq!(
+            platform
+                .calls
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|call| call.url.ends_with("/broadcast"))
+                .count(),
+            1
+        );
+        let body = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        let body = std::str::from_utf8(&body).unwrap();
+        if mode == "success" {
+            assert!(body.contains("[1,2,3,4,5,6]"));
+        } else {
+            assert!(!body.contains("widgets"));
+            assert!(body.contains("Payment could not be confirmed"));
+        }
+    }
+}
+
+#[tokio::test]
+async fn larger_bundles_use_request_prices_and_reuse_seller_configuration() {
+    for (protocol, path) in [
+        ("mpp", "/api/widgets"),
+        ("mpp", "/api/tower-widgets"),
+        ("card", "/api/widgets"),
+        ("x402", "/api/widgets"),
+    ] {
+        let (options, platform) = setup(if protocol == "card" {
+            "card"
+        } else {
+            "success"
+        });
+        let token = CancellationToken::new();
+        let app = match protocol {
+            "x402" => x402_seller::router(
+                options.clone(),
+                "http://127.0.0.1:3001/api/widgets",
+                &token,
+                inflow_x402_seller::PaymentFlow::Authorization,
+            )
+            .await
+            .unwrap(),
+            "card" => mpp_seller::router_with_method(
+                options.clone(),
+                "test-challenge-key-at-least-32-bytes".into(),
+                inflow_mpp_seller::Method::Card,
+                json!({"amount":"1.25"}),
+                &token,
+            )
+            .await
+            .unwrap(),
+            _ => mpp_seller::router(
+                options.clone(),
+                "test-challenge-key-at-least-32-bytes".into(),
+                &token,
+            )
+            .await
+            .unwrap(),
+        };
+        let (mut url, server) = serve(app).await;
+        url.set_path(path);
+        url.set_query(Some("bundle=large"));
+        let mut output = Vec::new();
+        if protocol == "x402" {
+            x402_buyer::run(options, url, &token, &mut output)
+                .await
+                .unwrap();
+        } else if protocol == "card" {
+            mpp_buyer::run_with_card(
+                options,
+                url,
+                Some(inflow_mpp_buyer::CardPaymentOptions {
+                    merchant: inflow_mpp_buyer::Merchant {
+                        name: "Shop".into(),
+                        url: "https://shop.example".into(),
+                        country_code: "US".into(),
+                    },
+                    instrument_id: None,
+                }),
+                &token,
+                &mut output,
+            )
+            .await
+            .unwrap();
+        } else {
+            mpp_buyer::run(options, url, &token, &mut output)
+                .await
+                .unwrap();
+        }
+        server.abort();
+        assert!(String::from_utf8(output).unwrap().contains("[1,2,3,4,5,6]"));
+        let calls = platform.calls.lock().unwrap();
+        assert_eq!(
+            calls
+                .iter()
+                .filter(|call| call.url.ends_with("/config"))
+                .count(),
+            1
+        );
+        if protocol == "x402" {
+            assert_eq!(
+                platform.accepted.lock().unwrap()["amount"],
+                "20000000000000000"
+            );
+        } else {
+            let payment = calls
+                .iter()
+                .find(|call| call.url.ends_with("/transactions/mpp"))
+                .unwrap();
+            let body: Value = serde_json::from_slice(&payment.body).unwrap();
+            let challenge =
+                inflow_mpp::decode(body["challenge"]["request"].as_str().unwrap()).unwrap();
+            assert_eq!(
+                challenge["amount"],
+                if protocol == "card" { "250" } else { "0.02" }
+            );
+        }
+    }
+}
+
+#[tokio::test]
 async fn combined_application_route_offers_mpp_and_upfront_x402_as_alternatives() {
     use tower::ServiceExt;
     for use_mpp in [true, false] {

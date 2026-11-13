@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+mod pricing;
+pub use pricing::{RequestPaymentLayer, RequestPaymentService};
+
 use axum::response::Response;
 use http::{
     StatusCode,
