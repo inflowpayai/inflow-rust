@@ -6,6 +6,8 @@ mod cards;
 mod http;
 #[cfg(feature = "tower")]
 mod middleware;
+#[cfg(feature = "tower")]
+mod pricing;
 
 #[tokio::test]
 async fn shared_preparation_and_signed_route_vectors() {

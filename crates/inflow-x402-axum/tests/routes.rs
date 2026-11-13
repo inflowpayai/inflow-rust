@@ -10,6 +10,9 @@ use std::{
 };
 use tower::ServiceExt;
 
+#[path = "support/pricing.rs"]
+mod pricing;
+
 #[derive(Clone)]
 struct Platform {
     calls: Arc<Mutex<Vec<TransportRequest>>>,

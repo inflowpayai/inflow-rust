@@ -1,14 +1,13 @@
 use crate::Result;
 use axum::{
     Json, Router,
-    body::Body,
     extract::State,
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, Uri, request::Parts},
     response::{IntoResponse, Response},
     routing::get,
 };
 use inflow_mpp_seller::{
-    ChallengeOptions, ClientOptions, Method, Offer, PaymentLayer, Seller, SellerOptions,
+    ChallengeOptions, ClientOptions, Method, Offer, RequestPaymentLayer, Seller, SellerOptions,
 };
 use serde_json::json;
 use tokio_util::sync::CancellationToken;
@@ -44,27 +43,66 @@ pub async fn router_with_method(
         token,
     )
     .await?;
-    let offer = seller.offer(
+    let state = Pricing {
+        seller,
         method,
         request,
-        ChallengeOptions {
-            description: Some("Example widgets".into()),
-            ..Default::default()
-        },
-    )?;
+    };
+    state.offer(&Uri::from_static("/api/widgets"))?;
+    let pricing = state.clone();
+    let layer = RequestPaymentLayer::new(move |parts: Parts| {
+        let result = pricing.offer(&parts.uri);
+        async move { result }
+    });
     Ok(Router::new()
         .route("/free", get(|| async { Json(json!({"ok":true})) }))
         .route("/api/widgets", get(widgets))
         .route(
             "/api/tower-widgets",
-            get(|| async { Json(json!({"widgets":[1,2,3]})) })
-                .layer(PaymentLayer::new(offer.clone()).with_problem_details(Body::from)),
+            get(|uri: Uri| async move { Json(widgets_body(&uri)) }).route_layer(layer),
         )
-        .with_state(offer))
+        .with_state(state))
 }
 
-async fn widgets(State(offer): State<Offer>, headers: HeaderMap) -> Response {
-    let result = payment(&offer, &headers).await;
+#[derive(Clone)]
+struct Pricing {
+    seller: Seller,
+    method: Method,
+    request: serde_json::Value,
+}
+
+impl Pricing {
+    fn offer(&self, uri: &Uri) -> std::result::Result<Offer, inflow_mpp_seller::Error> {
+        let mut request = self.request.clone();
+        if large_bundle(uri) {
+            request["amount"] = json!(if request["currency"] == "USDC" {
+                "0.02"
+            } else {
+                "2.50"
+            });
+        }
+        self.seller.offer(
+            self.method,
+            request,
+            ChallengeOptions {
+                description: Some("Example widgets".into()),
+                ..Default::default()
+            },
+        )
+    }
+}
+
+fn large_bundle(uri: &Uri) -> bool {
+    url::form_urlencoded::parse(uri.query().unwrap_or_default().as_bytes())
+        .any(|(key, value)| key == "bundle" && value == "large")
+}
+
+fn widgets_body(uri: &Uri) -> serde_json::Value {
+    json!({"widgets": if large_bundle(uri) { vec![1,2,3,4,5,6] } else { vec![1,2,3] }})
+}
+
+async fn widgets(State(pricing): State<Pricing>, uri: Uri, headers: HeaderMap) -> Response {
+    let result = payment(&pricing, &headers, &uri).await;
     let mut response = match result {
         Ok(response) => response,
         // An uncertain settlement is not a fresh offer. Do not prompt another charge or deliver widgets.
@@ -80,14 +118,10 @@ async fn widgets(State(offer): State<Offer>, headers: HeaderMap) -> Response {
     response
 }
 
-async fn payment(offer: &Offer, headers: &HeaderMap) -> Result<Response> {
+async fn payment(pricing: &Pricing, headers: &HeaderMap, uri: &Uri) -> Result<Response> {
+    let offer = pricing.offer(uri)?;
     let Some(header) = headers.get("authorization") else {
-        let challenge = inflow_mpp::render_challenge(&offer.challenge(None)?)?;
-        return Ok((
-            StatusCode::PAYMENT_REQUIRED,
-            [("www-authenticate", challenge)],
-        )
-            .into_response());
+        return payment_required(&offer);
     };
     if headers.get_all("authorization").iter().count() != 1 {
         return Ok((StatusCode::BAD_REQUEST, "Send one Payment credential.").into_response());
@@ -106,14 +140,24 @@ async fn payment(offer: &Offer, headers: &HeaderMap) -> Result<Response> {
             return Ok((StatusCode::BAD_REQUEST, "Invalid Payment credential.").into_response());
         }
     };
-    let receipt = offer
+    let receipt = match offer
         .accept(&credential, None, &CancellationToken::new())
-        .await?;
+        .await
+    {
+        Ok(receipt) => receipt,
+        Err(error) if error.code == "MPP_CREDENTIAL_MISMATCH" => return payment_required(&offer),
+        Err(error) => return Err(error.into()),
+    };
     let receipt = inflow_mpp::encode(&serde_json::to_value(receipt)?)?;
     // Fulfill only after accept has validated and settled. This route has no application login.
+    Ok(([("payment-receipt", receipt)], Json(widgets_body(uri))).into_response())
+}
+
+fn payment_required(offer: &Offer) -> Result<Response> {
+    let challenge = inflow_mpp::render_challenge(&offer.challenge(None)?)?;
     Ok((
-        [("payment-receipt", receipt)],
-        Json(json!({"widgets":[1,2,3]})),
+        StatusCode::PAYMENT_REQUIRED,
+        [("www-authenticate", challenge)],
     )
         .into_response())
 }

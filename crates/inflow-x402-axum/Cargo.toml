@@ -13,6 +13,7 @@ include = ["src/**", "tests/**", "README.md", "LICENSE"]
 [dependencies]
 axum = { version = "0.8", default-features = false }
 http.workspace = true
+http-body-util = "0.1"
 inflow-x402 = { path = "../inflow-x402", version = "0.4.1" }
 inflow-x402-seller = { path = "../inflow-x402-seller", version = "0.4.1" }
 serde.workspace = true
@@ -23,6 +24,7 @@ x402-axum.workspace = true
 x402-types.workspace = true
 
 [dev-dependencies]
+http-body = "1"
 inflow-core = { path = "../inflow-core", version = "0.4.1" }
 tokio.workspace = true
 

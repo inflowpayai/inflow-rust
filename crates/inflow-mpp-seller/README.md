@@ -10,6 +10,45 @@ paid resource. Supported methods are InFlow, Tempo, Stripe, and CARD charge.
 Add `inflow-mpp-seller`, `inflow-mpp`, and `serde_json` to use the direct-handler examples below.
 The handler can run inside any HTTP framework using the application's Tokio runtime.
 
+## Request-time pricing
+
+With the `tower` feature, `RequestPaymentLayer` resolves an offer asynchronously
+from HTTP request parts. It delegates payment processing to `PaymentLayer`.
+
+```no_run
+# #[cfg(feature = "tower")]
+# fn request_pricing(seller: inflow_mpp_seller::Seller) {
+use http::request::Parts;
+use inflow_mpp_seller::{RequestPaymentLayer, Method};
+use serde_json::json;
+
+let layer = RequestPaymentLayer::new(move |request: Parts| {
+    let seller = seller.clone();
+    async move {
+        let amount = if request.uri.path() == "/reports/full" { "0.02" } else { "0.01" };
+        seller.offer(Method::Inflow,
+            json!({"amount":amount,"currency":"USDC","methodDetails":{"rail":"balance"}}),
+            Default::default())
+    }
+});
+# let _ = layer;
+# }
+```
+
+For body-based pricing, use `RequestPaymentBodyLayer::new(|parts, bytes| async move { ... })`
+and optionally `.max_body_bytes(limit)` (default 2 MiB). It binds payment to those
+bytes and forwards them to the handler as `http_body_util::Full<bytes::Bytes>`.
+The metadata-only layer does not read or transform the body. Response bodies must
+support `Default + From<bytes::Bytes>`, including Axum's `Body`.
+
+Resolution runs once per incoming request, including paid retries; it is not a
+price lock across requests. Resolver failures return a generic 500 without a
+challenge; oversized or unreadable bodies return 413 or 400 before resolution.
+These layers return JSON Problem Details and never run the handler on pricing
+failure. Authenticate before the payment layer when pricing uses customer identity.
+Resolver errors remain available to server middleware through `response.extensions().get::<inflow_mpp_seller::Error>()`; they are not serialized to the client.
+Fixed offers and direct `Offer::accept` handlers remain available.
+
 ## Account and setup
 
 For a runnable HTTP server and matching Buyer, follow the

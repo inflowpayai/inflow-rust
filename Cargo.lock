@@ -3224,6 +3224,7 @@ version = "0.4.1"
 dependencies = [
  "bytes",
  "http 1.5.0",
+ "http-body",
  "http-body-util",
  "inflow-core",
  "inflow-mpp",
@@ -3275,6 +3276,8 @@ version = "0.4.1"
 dependencies = [
  "axum",
  "http 1.5.0",
+ "http-body",
+ "http-body-util",
  "inflow-core",
  "inflow-x402",
  "inflow-x402-seller",
