@@ -720,6 +720,20 @@ async fn validate_inputs_and_never_retry_create_or_authorize() {
 #[tokio::test(start_paused = true)]
 async fn invalid_challenges_are_rejected_without_network_and_wire_fields_are_preserved() {
     let (buyer, script) = client(vec![]);
+    for header in ["Authorization", "authorization", "", "X-Payment"] {
+        let mut invalid = challenge();
+        invalid.header = Some(header.into());
+        assert!(
+            buyer
+                .prepare(
+                    &invalid,
+                    PaymentOptions::default(),
+                    &CancellationToken::new()
+                )
+                .await
+                .is_err()
+        );
+    }
     let mut invalid = challenge();
     invalid.id.clear();
     assert!(

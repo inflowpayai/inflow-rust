@@ -4,3 +4,6 @@ mod buyer;
 mod eip7702;
 #[path = "cases/http.rs"]
 mod http;
+#[cfg(feature = "solana")]
+#[path = "cases/solana.rs"]
+mod solana;

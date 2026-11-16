@@ -1,3 +1,5 @@
+#[path = "buyer/automatic.rs"]
+mod automatic;
 #[path = "buyer/conformance.rs"]
 mod conformance;
 #[path = "buyer/http.rs"]

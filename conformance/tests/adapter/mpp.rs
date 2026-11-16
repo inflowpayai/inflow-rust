@@ -69,11 +69,18 @@ pub async fn execute(op: &str, input: &Value) -> Result<Value, Error> {
     if matches!(op, "mpp.buyer.fulfil" | "mpp.buyer.cancel") {
         use inflow_mpp_buyer::{Buyer, PaymentOptions, WaitOptions};
         let buyer = Buyer::new(transport::options(input)?)?;
+        let mut fields = input["challenge"].clone();
+        // These cases exercise Buyer input validation, not upstream JSON normalization.
+        let header = fields
+            .as_object_mut()
+            .and_then(|fields| fields.remove("header"));
+        let mut challenge: PaymentChallenge = read(fields)?;
+        challenge.header = header.map(read).transpose()?;
         let payment = if input["challenge"]["method"] == "card" {
             let context = &input["context"];
             buyer
                 .prepare_card(
-                    &read(input["challenge"].clone())?,
+                    &challenge,
                     inflow_mpp_buyer::CardPaymentOptions {
                         merchant: inflow_mpp_buyer::Merchant {
                             name: context["merchant"]["name"]
@@ -97,7 +104,7 @@ pub async fn execute(op: &str, input: &Value) -> Result<Value, Error> {
         } else {
             buyer
                 .prepare(
-                    &read(input["challenge"].clone())?,
+                    &challenge,
                     PaymentOptions {
                         instrument_id: input["context"]["instrumentId"].as_str().map(str::to_owned),
                         subscription_id: input["context"]["subscriptionId"]

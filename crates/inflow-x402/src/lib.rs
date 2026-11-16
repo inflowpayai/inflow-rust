@@ -21,6 +21,13 @@ pub const PAYMENT_REQUIRED: &str = "PAYMENT-REQUIRED";
 pub const PAYMENT_SIGNATURE: &str = "PAYMENT-SIGNATURE";
 pub const PAYMENT_RESPONSE: &str = "PAYMENT-RESPONSE";
 
+/// Facilitator metadata is separate from the response serialized into a buyer receipt.
+#[derive(Debug, Clone)]
+pub struct FacilitatorResult<T> {
+    pub response: T,
+    pub extension_responses: Option<serde_json::Map<String, serde_json::Value>>,
+}
+
 fn invalid(field: &str) -> Error {
     Error::new("INVALID_X402_DATA", format!("invalid x402 {field}"))
 }

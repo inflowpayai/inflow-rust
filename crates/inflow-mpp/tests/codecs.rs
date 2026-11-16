@@ -182,6 +182,9 @@ fn headers_reject_malformed_values_without_panicking() {
         ", description=\"x\"\"y\"",
         ", description=\"x\u{01}\"",
         ", header=Cookie",
+        ", header=Authorization",
+        ", header=authorization",
+        ", header=\"\"",
     ] {
         assert!(
             parse_challenges(&[&format!("{basic}{tail}")]).is_err(),

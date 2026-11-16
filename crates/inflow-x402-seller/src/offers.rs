@@ -265,12 +265,30 @@ fn build(value: Value, options: &OfferOptions) -> Result<Vec<PaymentRequirements
                         .as_deref()
                         .is_some_and(|p| p.eq_ignore_ascii_case(PROXY)));
             if compatible && options.includes("exact", &asset.network) {
+                let scheme_extra = asset
+                    .network
+                    .starts_with("solana:")
+                    .then(|| {
+                        config
+                            .supported
+                            .iter()
+                            .find(|kind| {
+                                kind["x402Version"] == 2
+                                    && kind["scheme"] == "exact"
+                                    && kind["network"] == asset.network
+                            })
+                            .and_then(|kind| kind["extra"].get("transactionVersions"))
+                            .map(|versions| {
+                                Map::from_iter([("transactionVersions".into(), versions.clone())])
+                            })
+                    })
+                    .flatten();
                 result.push(onchain(
                     asset,
                     wallet,
                     method,
                     "exact",
-                    None,
+                    scheme_extra.as_ref(),
                     atomic(whole, fraction, asset.decimals)?,
                     options.max_timeout_seconds,
                 )?);

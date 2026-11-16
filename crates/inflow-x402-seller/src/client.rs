@@ -1,6 +1,6 @@
 use crate::{
-    Authentication, CancellationToken, ClientOptions, Error, SettleRequest, SettleResponse,
-    SupportedResponse, VerifyRequest, VerifyResponse, invalid,
+    Authentication, CancellationToken, ClientOptions, Error, FacilitatorResult, SettleRequest,
+    SettleResponse, SupportedResponse, VerifyRequest, VerifyResponse, invalid,
 };
 use inflow_x402::internal::X402Client;
 use serde_json::Value;
@@ -53,6 +53,15 @@ impl<T: Clone> Cache<T> {
 pub struct Facilitator {
     client: X402Client,
     supported: Cache<SupportedResponse>,
+    response_handler: Option<Arc<ResponseHandler>>,
+}
+
+type ResponseHandler = dyn Fn(&VerifyRequest, FacilitatorResponse<'_>) + Send + Sync;
+
+/// An operation's result and metadata, borrowed only for the duration of its callback.
+pub enum FacilitatorResponse<'a> {
+    Verify(&'a FacilitatorResult<VerifyResponse>),
+    Settle(&'a FacilitatorResult<SettleResponse>),
 }
 
 impl Facilitator {
@@ -61,7 +70,17 @@ impl Facilitator {
         Ok(Self {
             client: X402Client::new(options)?,
             supported: Cache::default(),
+            response_handler: None,
         })
+    }
+
+    /// Observes completed responses without changing payment outcomes or receipt contents.
+    pub fn with_response_handler(
+        mut self,
+        handler: impl Fn(&VerifyRequest, FacilitatorResponse<'_>) + Send + Sync + 'static,
+    ) -> Self {
+        self.response_handler = Some(Arc::new(handler));
+        self
     }
 
     pub async fn supported(&self, token: &CancellationToken) -> Result<SupportedResponse, Error> {
@@ -80,7 +99,7 @@ impl Facilitator {
         request: &VerifyRequest,
         token: &CancellationToken,
     ) -> Result<VerifyResponse, Error> {
-        self.client.verify(request, token).await
+        Ok(self.verify_with_metadata(request, token).await?.response)
     }
 
     pub async fn settle(
@@ -88,7 +107,31 @@ impl Facilitator {
         request: &SettleRequest,
         token: &CancellationToken,
     ) -> Result<SettleResponse, Error> {
-        self.client.settle(request, token).await
+        Ok(self.settle_with_metadata(request, token).await?.response)
+    }
+
+    pub async fn verify_with_metadata(
+        &self,
+        request: &VerifyRequest,
+        token: &CancellationToken,
+    ) -> Result<FacilitatorResult<VerifyResponse>, Error> {
+        let result = self.client.verify_with_metadata(request, token).await?;
+        if let Some(handler) = &self.response_handler {
+            handler(request, FacilitatorResponse::Verify(&result));
+        }
+        Ok(result)
+    }
+
+    pub async fn settle_with_metadata(
+        &self,
+        request: &SettleRequest,
+        token: &CancellationToken,
+    ) -> Result<FacilitatorResult<SettleResponse>, Error> {
+        let result = self.client.settle_with_metadata(request, token).await?;
+        if let Some(handler) = &self.response_handler {
+            handler(request, FacilitatorResponse::Settle(&result));
+        }
+        Ok(result)
     }
 }
 

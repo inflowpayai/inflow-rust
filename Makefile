@@ -4,7 +4,7 @@ coverage:
 	cargo llvm-cov --workspace --all-features --locked --ignore-filename-regex '/tests/' --fail-under-lines 99 --fail-under-file-lines 99 --fail-under-functions 99 --fail-under-regions 99 --lcov --output-path lcov.info || { cargo llvm-cov report --ignore-filename-regex '/tests/'; exit 1; }
 
 dependency:
-	cargo deny check
+	cargo deny --all-features check
 
 docs:
 	RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps --locked

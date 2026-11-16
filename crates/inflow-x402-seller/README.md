@@ -126,7 +126,49 @@ changes. `signer_addresses` checks an exact network before its namespace wildcar
 Offers and route layers are snapshots: refreshing the client does not rewrite an
 existing layer. Rebuild affected routes when changing their advertised payment terms.
 
+### Read facilitator extension results
+
+`verify_with_metadata` and `settle_with_metadata` return a `FacilitatorResult`:
+`response` is the ordinary upstream payment result, and `extension_responses`
+contains an optional JSON object decoded from the facilitator's
+`EXTENSION-RESPONSES` header. Absent, malformed, or non-object metadata is ignored;
+it does not turn a completed payment into a failure or cause a retry. Inspect the
+payment result's `isValid` or `success` independently of this metadata.
+
+For middleware, attach an observer to the facilitator before constructing the
+payment layer:
+
+```no_run
+use inflow_x402_seller::{Facilitator, FacilitatorResponse};
+# fn example(facilitator: Facilitator) {
+let facilitator = facilitator.with_response_handler(|request, result| {
+    let metadata = match result {
+        FacilitatorResponse::Verify(result) => &result.extension_responses,
+        FacilitatorResponse::Settle(result) => &result.extension_responses,
+    };
+    // Correlate extension results with this request in your application's records.
+    let _ = (request, metadata);
+});
+# let _ = facilitator;
+# }
+```
+
+The observer runs once for each returned verification or settlement result,
+including a rejected result, but not for transport errors or intermediate pending
+retries. It receives that operation's request and result; concurrent operations
+do not share a last-response slot. Keep the observer short and do not panic: it is
+synchronous and cannot change the payment outcome. The direct metadata methods
+also invoke it when configured. Only `response` is passed to upstream middleware
+for receipt serialization; extension-response metadata is not sent to the buyer.
+
 ## Differences from upstream integration
+
+The upstream Rust 2.0.2 middleware does not implement Sign-In-With-X session
+verification, Bazaar metadata generation, signed offer/receipt issuance, builder
+attribution, or a browser paywall. Attaching data with the Axum layer's
+`with_extension` publishes that data; it does not add those behaviors. See the
+[capability descriptions](../inflow-x402-buyer/README.md#other-x402-extension-capabilities)
+before advertising an extension that your application does not implement.
 
 - InFlow's client selects platform URLs, handles account credentials, preserves
   payment identifiers, and applies the bounded pending-settlement retry above.

@@ -15,6 +15,11 @@ pub struct HttpClient {
     transport: Arc<dyn Transport>,
 }
 
+pub struct HttpResponse {
+    pub headers: HeaderMap,
+    pub body: Value,
+}
+
 impl HttpClient {
     pub async fn payment_status(
         &self,
@@ -69,6 +74,21 @@ impl HttpClient {
         retries: u8,
         cancellation: &CancellationToken,
     ) -> Result<Value, Error> {
+        Ok(self
+            .request_with_response(method, path, body, headers, retries, cancellation)
+            .await?
+            .body)
+    }
+
+    pub async fn request_with_response(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<Value>,
+        headers: HeaderMap,
+        retries: u8,
+        cancellation: &CancellationToken,
+    ) -> Result<HttpResponse, Error> {
         if !path.starts_with('/') || path.starts_with("//") || path.contains(['#', '\\']) {
             return Err(Error::invalid("path"));
         }
@@ -124,7 +144,7 @@ impl HttpClient {
         extra: &HeaderMap,
         secrets: &mut Vec<String>,
         cancellation: &CancellationToken,
-    ) -> Result<(Result<Value, Error>, bool), Error> {
+    ) -> Result<(Result<HttpResponse, Error>, bool), Error> {
         let mut headers = extra.clone();
         headers.insert("accept", HeaderValue::from_static("application/json"));
         headers.insert(
@@ -202,7 +222,13 @@ impl HttpClient {
             })
         };
         if (200..300).contains(&response.status) {
-            return Ok((Ok(body), false));
+            return Ok((
+                Ok(HttpResponse {
+                    body,
+                    headers: response.headers,
+                }),
+                false,
+            ));
         }
         let retryable = matches!(response.status, 429 | 502 | 503 | 504);
         Ok((

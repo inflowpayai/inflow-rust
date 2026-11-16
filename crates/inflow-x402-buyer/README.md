@@ -164,6 +164,40 @@ yourself. The adapter sends at most one paid retry and follows no redirects, so 
 does not forward payment or service-authentication credentials to another destination.
 It also does not replace an existing payment header after another 402 response.
 
+### External Solana transaction versions
+
+The re-exported `solana::V2SolanaExactClient` from `x402-chain-solana` 2.0.2
+builds version-0 Solana transactions. It does not negotiate
+`extra.transactionVersions`: even an offer containing only `[1]` is accepted by
+the native client and signed as version 0. That transaction does not meet the
+seller's advertised version requirement. Use this native signer only when the
+offer permits version 0; it cannot pay a version-1-only offer.
+
+Tracked upstream: [x402-rs/x402-rs#147](https://github.com/x402-rs/x402-rs/issues/147).
+
+This is a limitation of the external-wallet signer, not InFlow-managed signing.
+Managed requests preserve the seller's advertised version list for the platform
+to handle. `HttpBuyer::register` also accepts application-supplied scheme clients;
+their supported transaction versions are determined by their implementation.
+
+### Other x402 extension capabilities
+
+The upstream Rust 2.0.2 crates provide an extension-data map, scheme clients,
+payment selection, and Axum payment enforcement. An extension name in that map
+does not implement its authentication, discovery, signing, or verification rules.
+
+| Capability | Rust integration |
+| ---------- | ---------------- |
+| Sign-In-With-X wallet authentication | No native authentication hook or wallet-session verifier. `HttpBuyer` does not attempt wallet authentication before paying. Application authentication headers can be supplied independently. |
+| Bazaar discovery | No native declaration-generation or validation helper. Applications can publish their own typed metadata with the Axum layer's `with_extension`; that only publishes the supplied data. |
+| Signed offers and receipts | No native issuer or signature verifier. The ordinary payment settlement receipt is not the signed-receipt extension. |
+| Builder attribution | No native builder-code encoder or signing integration. Copying a code into extension JSON does not implement attribution. |
+| Browser paywall | No bundled checkout page or wallet-connection interface. The Axum layer returns protocol payment requirements; applications supply their own browser experience. |
+
+These are absent upstream implementations, not capabilities enabled by
+`PaymentExtension`. That trait lets application code enrich an externally signed
+payment; it does not add a pre-payment authentication exchange or a browser UI.
+
 ### Exact Permit2 allowance sponsorship
 
 The upstream Rust `exact` signer in `x402-chain-eip155` 2.0.2 does not create an

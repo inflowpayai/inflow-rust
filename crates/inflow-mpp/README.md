@@ -67,6 +67,13 @@ request objects, not to rebuild an already-issued challenge's encoded fields.
 
 ## Differences from upstream MPP
 
+`parse_challenges` rejects explicit `header="Authorization"`, empty values, and
+custom fields before upstream conversion. A valid challenge omits `header` for
+Authorization or selects Payment-Authorization explicitly. The native mpp parser
+normalizes explicit Authorization and empty values to omission; downstream code
+cannot recover that distinction. [Issue #730](https://github.com/tempoxyz/mpp-rs/issues/730)
+tracks this limitation in native parsing and automatic HTTP payment.
+
 `Receipt` is the upstream type. Read the optional funding token through
 `receipt.funding_currency()` rather than `receipt.extensions["fundingCurrency"]`.
 Set it through `with_funding_currency(...)` or the `funding_currency` field;
