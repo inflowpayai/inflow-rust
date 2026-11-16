@@ -7,7 +7,7 @@ MPP/x402 verification, and business authorization separate.
 
 ```toml
 [dependencies]
-inflow-tap-seller = "0.4.0"
+inflow-tap-seller = "0.5.0"
 ```
 
 This crate is independent of the InFlow payment crates. It requires no InFlow

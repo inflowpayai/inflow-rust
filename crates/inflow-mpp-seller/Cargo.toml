@@ -18,8 +18,8 @@ bytes = { version = "1", optional = true }
 http = { workspace = true, optional = true }
 http-body = { version = "1", optional = true }
 http-body-util = { version = "0.1", optional = true }
-inflow-core = { path = "../inflow-core", version = "0.4.1" }
-inflow-mpp = { path = "../inflow-mpp", version = "0.4.1" }
+inflow-core = { path = "../inflow-core", version = "0.5.0" }
+inflow-mpp = { path = "../inflow-mpp", version = "0.5.0" }
 mpp = { workspace = true, features = ["server"] }
 serde = { version = "1", features = ["derive"] }
 serde_json.workspace = true
