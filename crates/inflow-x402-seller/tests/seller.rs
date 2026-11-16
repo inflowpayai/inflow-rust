@@ -665,6 +665,49 @@ async fn multi_chain_order_precision_and_open_payment_schemes() {
 }
 
 #[tokio::test]
+async fn solana_versions_come_from_the_matching_exact_configuration() {
+    let s = fixture();
+    {
+        let mut state = s.0.lock().unwrap();
+        state.config["assets"] = json!([{"blockchain":"SOLANA","currency":"USDC","assetName":"USDC","assetId":"mint","decimals":6,"network":"solana:mainnet","assetTransferMethod":"solana"}]);
+        state.config["wallets"] =
+            json!([{"blockchain":"SOLANA","address":"wallet","feePayer":"sponsor"}]);
+        state.config["paymentMethods"] = json!([]);
+    }
+    let seller = seller(&s).await;
+    let token = CancellationToken::new();
+    for versions in [
+        None,
+        Some(json!([0])),
+        Some(json!([1])),
+        Some(json!([0, 1])),
+    ] {
+        {
+            let mut state = s.0.lock().unwrap();
+            state.config["supported"] = json!([
+                {"x402Version":1,"scheme":"exact","network":"solana:mainnet","extra":{"transactionVersions":[9]}},
+                {"x402Version":2,"scheme":"upto","network":"solana:mainnet","extra":{"transactionVersions":[9]}},
+                {"x402Version":2,"scheme":"exact","network":"solana:other","extra":{"transactionVersions":[9]}},
+                {"x402Version":2,"scheme":"exact","network":"solana:mainnet","extra":{"other":"not copied"}}
+            ]);
+            if let Some(value) = &versions {
+                state.config["supported"][3]["extra"]["transactionVersions"] = value.clone();
+            }
+        }
+        seller.refresh_config(&token).await.unwrap();
+        let offers = seller
+            .offers(&OfferOptions::new("1 USDC"), &token)
+            .await
+            .unwrap();
+        assert_eq!(offers.len(), 1);
+        let extra = offers[0].extra.as_ref().unwrap();
+        assert_eq!(extra.get("transactionVersions"), versions.as_ref());
+        assert_eq!(extra["feePayer"], "sponsor");
+        assert!(extra.get("other").is_none());
+    }
+}
+
+#[tokio::test]
 async fn malformed_or_failed_refresh_is_not_used_to_advertise_a_route() {
     let s = fixture();
     let seller = seller(&s).await;

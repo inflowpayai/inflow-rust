@@ -53,6 +53,17 @@ fn main() {
     let _ = std::mem::size_of::<inflow_mpp_buyer::Buyer>();
     let _ = inflow_mpp_buyer::Buyer::prepare_card;
     let _ = inflow_mpp_buyer::Buyer::get_payment_status;
+    let _ = inflow_mpp_buyer::HttpPayment::new_with_limits(
+        inflow_mpp_buyer::Buyer::new(ClientOptions::default()).unwrap(),
+        inflow_mpp_buyer::HttpPaymentMethod::Inflow { instrument_id: None },
+        inflow_mpp_buyer::MethodLimits {
+            max_amount: Some("0.50".into()), currencies: Some(vec!["USDC".into()]),
+            ..Default::default()
+        },
+    ).unwrap().with_instrument_id(None).unwrap().with_error_handler(|challenge, error| {
+        let _ = (&challenge.id, &error.code, &error.request_id);
+    });
+    let _ = inflow_mpp_buyer::HttpPayment::send;
     let _ = inflow_x402_buyer::Buyer::get_payment_status;
     let _ = inflow_mpp_buyer::PaymentStatusOptions::default();
     let _ = inflow_x402_buyer::PaymentStatusOptions { retries: 1 };
@@ -72,6 +83,16 @@ fn main() {
         let _: fn(inflow_mpp_seller::Offer) -> inflow_mpp_seller::PaymentBodyLayer<inflow_mpp_seller::Offer> = inflow_mpp_seller::PaymentBodyLayer::new;
     }
     let _ = std::mem::size_of::<inflow_x402_buyer::HttpBuyer>();
+    let _ = inflow_x402_seller::Facilitator::new(ClientOptions::default()).unwrap()
+        .with_response_handler(|request, result| {
+            let metadata = match result {
+                inflow_x402_seller::FacilitatorResponse::Verify(result) => &result.extension_responses,
+                inflow_x402_seller::FacilitatorResponse::Settle(result) => &result.extension_responses,
+            };
+            let _ = (request, metadata);
+        });
+    let _ = inflow_x402_seller::Facilitator::verify_with_metadata;
+    let _ = inflow_x402_seller::Facilitator::settle_with_metadata;
     let mut offers = inflow_x402_seller::OfferOptions::new("0.01 USDC");
     assert_eq!(offers.payment_flow, inflow_x402_seller::PaymentFlow::Authorization);
     offers.payment_flow = inflow_x402_seller::PaymentFlow::Upfront;

@@ -3,10 +3,11 @@
 mod client;
 mod offers;
 
-pub use client::{Facilitator, Seller};
+pub use client::{Facilitator, FacilitatorResponse, Seller};
 pub use inflow_core::{Authentication, ClientOptions, Environment, Error};
 pub use inflow_x402::{
-    PaymentRequirements, SettleRequest, SettleResponse, VerifyRequest, VerifyResponse,
+    FacilitatorResult, PaymentRequirements, SettleRequest, SettleResponse, VerifyRequest,
+    VerifyResponse,
 };
 pub use offers::{OfferOptions, PaymentFlow, Price, Route};
 pub use tokio_util::sync::CancellationToken;

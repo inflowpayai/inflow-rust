@@ -39,7 +39,14 @@ impl Transport for Platform {
             self.calls.lock().unwrap().push(request);
             Ok(TransportResponse {
                 status: self.status,
-                headers: Default::default(),
+                headers: [(
+                    http::HeaderName::from_static("extension-responses"),
+                    inflow_x402::encode(&json!({"private":"seller only"}))
+                        .parse()
+                        .unwrap(),
+                )]
+                .into_iter()
+                .collect(),
                 body: serde_json::to_vec(&body).unwrap(),
             })
         })
@@ -74,7 +81,17 @@ async fn real_axum_route_verifies_executes_then_settles_only_success() {
             status: platform_status,
         };
         let layer = payment_layer(
-            facilitator(&platform),
+            facilitator(&platform).with_response_handler(|_, response| {
+                let metadata = match response {
+                    inflow_x402_seller::FacilitatorResponse::Verify(result) => {
+                        &result.extension_responses
+                    }
+                    inflow_x402_seller::FacilitatorResponse::Settle(result) => {
+                        &result.extension_responses
+                    }
+                };
+                assert_eq!(metadata.as_ref().unwrap()["private"], "seller only");
+            }),
             route(),
             "https://merchant.example/report",
         )
@@ -113,6 +130,8 @@ async fn real_axum_route_verifies_executes_then_settles_only_success() {
                 inflow_x402::decode(response.headers()["payment-response"].to_str().unwrap())
                     .unwrap();
             assert_eq!(receipt["transaction"], "tx");
+            assert!(receipt.get("extensionResponses").is_none());
+            assert!(!receipt.to_string().contains("seller only"));
             assert_eq!(receipt["extensions"]["custom"]["preserve"], true);
             assert_eq!(
                 receipt["extensions"]["inflow-transaction"]["schema"]["required"],

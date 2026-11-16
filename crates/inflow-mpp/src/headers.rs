@@ -46,6 +46,14 @@ fn finish(
     result: &mut Vec<PaymentChallenge>,
 ) -> Result<(), Error> {
     if let Some(fields) = fields {
+        // mpp-rs #730: validate before deserialization can discard an explicit default header.
+        if let Some(header) = fields.get("header")
+            && !header
+                .as_str()
+                .is_some_and(|name| name.eq_ignore_ascii_case("Payment-Authorization"))
+        {
+            return Err(invalid("credential header"));
+        }
         // Deserialize preserves wire spelling; IntentName::new lowercases challenge-bound values.
         let challenge =
             serde_json::from_value(Value::Object(fields)).map_err(|_| invalid("challenge"))?;

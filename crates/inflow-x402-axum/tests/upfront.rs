@@ -53,10 +53,18 @@ impl Transport for Platform {
             let recovered = self.calls.lock().unwrap().len() >= self.succeed_on;
             Ok(TransportResponse {
                 status: if recovered { 200 } else { self.status },
-                headers: [(
-                    http::header::RETRY_AFTER,
-                    http::HeaderValue::from_static("0"),
-                )]
+                headers: [
+                    (
+                        http::header::RETRY_AFTER,
+                        http::HeaderValue::from_static("0"),
+                    ),
+                    (
+                        http::HeaderName::from_static("extension-responses"),
+                        inflow_x402::encode(&json!({"private":"seller only"}))
+                            .parse()
+                            .unwrap(),
+                    ),
+                ]
                 .into_iter()
                 .collect(),
                 body: serde_json::to_vec(&if recovered {
@@ -92,7 +100,16 @@ fn app(platform: &Platform, route: Route, status: u16) -> Router {
         transport: Some(Arc::new(platform.clone())),
         ..Default::default()
     })
-    .unwrap();
+    .unwrap()
+    .with_response_handler(|_, response| {
+        let inflow_x402_seller::FacilitatorResponse::Settle(result) = response else {
+            panic!("upfront must not verify first")
+        };
+        assert_eq!(
+            result.extension_responses.as_ref().unwrap()["private"],
+            "seller only"
+        );
+    });
     let layer = payment_layer(facilitator, route, "https://merchant.example/report").unwrap();
     let events = platform.events.clone();
     Router::new().route(
@@ -176,6 +193,8 @@ async fn real_upstream_settles_before_handler_and_keeps_receipts_on_handler_fail
             let receipt =
                 inflow_x402::decode(response.headers()["payment-response"].to_str().unwrap())
                     .unwrap();
+            assert!(receipt.get("extensionResponses").is_none());
+            assert!(!receipt.to_string().contains("seller only"));
             assert_eq!(receipt["success"], true);
             assert_eq!(receipt["transaction"], "tx");
             assert_eq!(receipt["extensions"], platform.body["extensions"]);

@@ -1,10 +1,10 @@
 //! Endpoint primitives for the Buyer and Seller crates, not an integrator endpoint API.
 
-use crate::{Error, SettleResponse, VerifyRequest, VerifyResponse, invalid};
+use crate::{Error, FacilitatorResult, SettleResponse, VerifyRequest, VerifyResponse, invalid};
 use http::{HeaderMap, Method};
 use inflow_core::{
     ClientOptions,
-    internal::{ApprovalCleanup, HttpClient},
+    internal::{ApprovalCleanup, HttpClient, HttpResponse},
 };
 use serde_json::Value;
 use std::time::Duration;
@@ -91,9 +91,25 @@ impl X402Client {
         request: &VerifyRequest,
         token: &CancellationToken,
     ) -> Result<VerifyResponse, Error> {
+        Ok(self.verify_with_metadata(request, token).await?.response)
+    }
+
+    pub async fn verify_with_metadata(
+        &self,
+        request: &VerifyRequest,
+        token: &CancellationToken,
+    ) -> Result<FacilitatorResult<VerifyResponse>, Error> {
         let body = prepare(request)?;
         let response = match self
-            .call(Method::POST, "/v1/x402/verify", Some(body), 0, token)
+            .0
+            .request_with_response(
+                Method::POST,
+                "/v1/x402/verify",
+                Some(body),
+                HeaderMap::new(),
+                0,
+                token,
+            )
             .await
         {
             Ok(response) => response,
@@ -102,12 +118,18 @@ impl X402Client {
                     && error.body["isValid"] == false
                     && error.body["invalidReason"] == "permit2_allowance_required" =>
             {
-                *error.body
+                HttpResponse {
+                    body: *error.body,
+                    headers: *error.headers,
+                }
             }
             Err(error) => return Err(error),
         };
-        outcome(&response, "isValid")?;
-        Ok(VerifyResponse(response))
+        outcome(&response.body, "isValid")?;
+        Ok(FacilitatorResult {
+            extension_responses: extension_responses(&response.headers),
+            response: VerifyResponse(response.body),
+        })
     }
 
     pub async fn settle(
@@ -115,23 +137,36 @@ impl X402Client {
         request: &VerifyRequest,
         token: &CancellationToken,
     ) -> Result<SettleResponse, Error> {
+        Ok(self.settle_with_metadata(request, token).await?.response)
+    }
+
+    pub async fn settle_with_metadata(
+        &self,
+        request: &VerifyRequest,
+        token: &CancellationToken,
+    ) -> Result<FacilitatorResult<SettleResponse>, Error> {
         let body = prepare(request)?;
         let mut attempt = 1;
         loop {
             // Match Node: only a known pending settlement can be retried, using identical payment material.
             match self
-                .call(
+                .0
+                .request_with_response(
                     Method::POST,
                     "/v1/x402/settle",
                     Some(body.clone()),
+                    HeaderMap::new(),
                     0,
                     token,
                 )
                 .await
             {
                 Ok(response) => {
-                    outcome(&response, "success")?;
-                    return Ok(SettleResponse(response));
+                    outcome(&response.body, "success")?;
+                    return Ok(FacilitatorResult {
+                        extension_responses: extension_responses(&response.headers),
+                        response: SettleResponse(response.body),
+                    });
                 }
                 Err(error)
                     if attempt < 5
@@ -170,6 +205,13 @@ impl X402Client {
             .request(method, path, body, HeaderMap::new(), retries, token)
             .await
     }
+}
+
+fn extension_responses(headers: &HeaderMap) -> Option<serde_json::Map<String, Value>> {
+    crate::decode(headers.get("extension-responses")?.to_str().ok()?)
+        .ok()?
+        .as_object()
+        .cloned()
 }
 
 fn prepare(request: &VerifyRequest) -> Result<Value, Error> {

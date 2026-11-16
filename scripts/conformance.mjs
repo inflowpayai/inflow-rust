@@ -104,6 +104,7 @@ async function main() {
   const { values } = parseArgs({
     options: {
       "contract-root": { type: "string" },
+      "contract-revision": { type: "string" },
       "output-dir": { type: "string" },
     },
   });
@@ -118,7 +119,7 @@ async function main() {
       "utf8",
     ),
   );
-  checkContract(contractRoot, pin.revision);
+  checkContract(contractRoot, values["contract-revision"] ?? pin.revision);
   const binary = buildAdapter();
   const implementation = metadata(
     JSON.parse(

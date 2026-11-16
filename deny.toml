@@ -2,7 +2,9 @@
 yanked = "deny"
 ignore = [
     { id = "RUSTSEC-2024-0436", reason = "x402-types depends on alloy-primitives, which requires paste. This advisory reports unmaintained compile-time macros, not a known vulnerability; no patched version is available." },
+    { id = "RUSTSEC-2025-0141", reason = "The upstream Solana dependency chain requires bincode 1.3.3. This advisory reports discontinued maintenance, not a known vulnerability; no compatible maintained release is available." },
     { id = "RUSTSEC-2026-0387", reason = "Retain the upstream Alloy cryptography dependencies pending a compatible fix: https://github.com/alloy-rs/alloy/issues/4445." },
+    { id = "RUSTSEC-2026-0441", reason = "The upstream Alloy dependency chain requires pin-utils through wasmtimer. This advisory reports discontinued maintenance, not a known vulnerability; no compatible maintained release is available." },
 ]
 
 [bans]
@@ -14,8 +16,11 @@ highlight = "all"
 confidence-threshold = 0.8
 allow = ["Apache-2.0", "BSD-3-Clause", "ISC", "MIT", "Unicode-3.0"]
 exceptions = [
+    { name = "Inflector", allow = ["BSD-2-Clause"] },
+    { name = "arrayref", allow = ["BSD-2-Clause"] },
     { name = "foldhash", allow = ["Zlib"] },
     { name = "webpki-root-certs", allow = ["CDLA-Permissive-2.0"] },
+    { name = "webpki-roots", allow = ["CDLA-Permissive-2.0"] },
 ]
 
 [sources]

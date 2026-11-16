@@ -132,8 +132,12 @@ pub async fn execute(op: &str, input: &Value) -> Result<Value, Error> {
         &input["payment_requirements"],
     )?;
     match op {
-        "x402.seller.verify" => wire(facilitator.verify(&request, &token).await?),
-        "x402.seller.settle" => wire(facilitator.settle(&request, &token).await?),
+        "x402.seller.verify" => {
+            metadata_observation(facilitator.verify_with_metadata(&request, &token).await?)
+        }
+        "x402.seller.settle" => {
+            metadata_observation(facilitator.settle_with_metadata(&request, &token).await?)
+        }
         "x402.seller.verify-settle" => {
             let verification = wire(facilitator.verify(&request, &token).await?)?;
             if verification["isValid"] == true {
@@ -146,4 +150,15 @@ pub async fn execute(op: &str, input: &Value) -> Result<Value, Error> {
         }
         _ => Err(bad("unknown x402 operation")),
     }
+}
+
+fn metadata_observation<T: serde::Serialize>(
+    result: inflow_x402::FacilitatorResult<T>,
+) -> Result<Value, Error> {
+    let mut value = wire(result.response)?;
+    // The contract observation includes metadata; production receipt serialization does not.
+    if let Some(metadata) = result.extension_responses {
+        value["extensionResponses"] = json!(metadata);
+    }
+    Ok(value)
 }

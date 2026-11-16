@@ -252,6 +252,7 @@ async function runCase(
                 type: "https://paymentauth.org/problems/verification-failed",
                 title: "Rejected test payment",
                 status: 402,
+                detail: "The synthetic payment was rejected during validation.",
               },
             });
           return send({
@@ -275,6 +276,7 @@ async function runCase(
               type: "https://paymentauth.org/problems/verification-failed",
               title: "Rejected test payment",
               status: 402,
+              detail: "The synthetic payment was rejected during settlement.",
             },
           });
         return send({
